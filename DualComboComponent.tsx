@@ -1,0 +1,564 @@
+'use client';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Lock } from 'lucide-react';
+
+export default function DualComboComponent() {
+  const [topic, setTopic] = useState('Why cereal is technically a cold soup');
+  const [word, setWord] = useState('CHEMISTRY');
+  const [category, setCategory] = useState('all');
+  const [level, setLevel] = useState('all');
+
+  // Repetition Target & Count
+  const [targetReps, setTargetReps] = useState(3);
+  const [repeatCount, setRepeatCount] = useState(0);
+
+  // States
+  const [isHeld, setIsHeld] = useState(false);
+  const [isPermanentlyRevealed, setIsPermanentlyRevealed] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [isSessionActive, setIsSessionActive] = useState(false);
+
+  // Minimum Speaking Time State (Default 2:30 = 150s)
+  const [minTimeTarget, setMinTimeTarget] = useState(150);
+  const [timerRemaining, setTimerRemaining] = useState(150);
+  const [overtimeSeconds, setOvertimeSeconds] = useState(0);
+  const [isMinTimeMet, setIsMinTimeMet] = useState(false);
+  const [totalSpokenSeconds, setTotalSpokenSeconds] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+
+  // Cross-environment timer ref (safe in both Node and Browser environments)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Audio completion chime (Web Audio API - zero tokens, zero external files)
+  const playChime = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const ctx = new AudioCtx();
+      const notes = [
+        { freq: 523.25, time: 0.00, dur: 0.3 }, // C5
+        { freq: 659.25, time: 0.15, dur: 0.3 }, // E5
+        { freq: 783.99, time: 0.30, dur: 0.3 }, // G5
+        { freq: 1046.50, time: 0.45, dur: 0.8 }, // C6
+      ];
+
+      notes.forEach((n) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(n.freq, ctx.currentTime + n.time);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime + n.time);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + n.time + n.dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + n.time);
+        osc.stop(ctx.currentTime + n.time + n.dur);
+      });
+    } catch (err) {
+      console.warn('Audio chime notice:', err);
+    }
+  }, []);
+
+  // Cleanup timer interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  // Restore local session state on client mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('secret_word_game_session_v2');
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s.topic) setTopic(s.topic);
+        if (s.word) setWord(s.word);
+        if (s.category) setCategory(s.category);
+        if (s.level) setLevel(s.level);
+        if (typeof s.targetRepeats === 'number') setTargetReps(s.targetRepeats);
+        if (typeof s.repeatCount === 'number') setRepeatCount(s.repeatCount);
+        if (typeof s.minTimeTarget === 'number') setMinTimeTarget(s.minTimeTarget);
+        if (typeof s.timerRemaining === 'number') setTimerRemaining(s.timerRemaining);
+        if (typeof s.overtimeSeconds === 'number') setOvertimeSeconds(s.overtimeSeconds);
+        if (typeof s.totalSpokenSeconds === 'number') setTotalSpokenSeconds(s.totalSpokenSeconds);
+        if (typeof s.isMinTimeMet === 'boolean') setIsMinTimeMet(s.isMinTimeMet);
+        if (typeof s.isSessionActive === 'boolean') setIsSessionActive(s.isSessionActive);
+        if (typeof s.isWordPermanentlyRevealed === 'boolean') setIsPermanentlyRevealed(s.isWordPermanentlyRevealed);
+      }
+    } catch { }
+  }, []);
+
+  // Automatically save session state locally (counts, timings, word, topic)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const s = {
+        topic,
+        word,
+        category,
+        level,
+        targetRepeats: targetReps,
+        repeatCount,
+        minTimeTarget,
+        timerRemaining,
+        overtimeSeconds,
+        totalSpokenSeconds,
+        isMinTimeMet,
+        isSessionActive,
+        isPermanentlyRevealed
+      };
+      localStorage.setItem('secret_word_game_session_v2', JSON.stringify(s));
+    } catch { }
+  }, [topic, word, category, level, targetReps, repeatCount, minTimeTarget, timerRemaining, overtimeSeconds, totalSpokenSeconds, isMinTimeMet, isSessionActive, isPermanentlyRevealed]);
+
+  const resetTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsRunning(false);
+    setIsMinTimeMet(false);
+    setIsSessionActive(false);
+    setOvertimeSeconds(0);
+    setTotalSpokenSeconds(0);
+    setTimerRemaining(minTimeTarget);
+  }, [minTimeTarget]);
+
+  const fetchCombo = useCallback(async () => {
+    if (isSessionActive) return;
+    setIsPermanentlyRevealed(false);
+    setRepeatCount(0);
+    resetTimer();
+
+    try {
+      const res = await fetch(`/api/combo?category=${category}&level=${level}`);
+      if (!res.ok) throw new Error('Network response not ok');
+      const json = await res.json();
+      if (json.success && json.data) {
+        setTopic(json.data.topic);
+        setWord(String(json.data.word).toUpperCase());
+      }
+    } catch {
+      // Fallback local curated dataset with subtle topic-word relations
+      const sampleCombos = [
+        {
+          topic: "Why cereal is technically a cold soup",
+          words: ["CHEMISTRY", "RECIPE", "LIQUID", "CHEF", "TRADITION", "TEMPERATURE"]
+        },
+        {
+          topic: "How to survive a zombie apocalypse using only items in this room",
+          words: ["WEAPON", "BANDAGE", "FLASHLIGHT", "PANIC", "DEFENSE", "OXYGEN"]
+        },
+        {
+          topic: "Why socks with sandals is misunderstood high fashion",
+          words: ["DESIGNER", "CONFIDENCE", "RUNWAY", "COMFORT", "REVOLUTION", "AESTHETIC"]
+        },
+        {
+          topic: "Convince us that aliens exist and they are secretly disappointed in us",
+          words: ["TELESCOPE", "DIPLOMAT", "EMBARRASSING", "CIVILIZATION", "SATELLITE"]
+        },
+        {
+          topic: "Why morning people cannot be trusted before 10 a.m.",
+          words: ["SUNSHINE", "CONSPIRACY", "ENERGY", "SUSPICIOUS", "ROUTINE", "DANGER"]
+        },
+        {
+          topic: "The conspiracy theory that pigeons are government surveillance drones",
+          words: ["BATTERY", "FEATHER", "ROOFTOP", "STATUE", "CAMERA", "SIGNAL"]
+        }
+      ];
+      const picked = sampleCombos[Math.floor(Math.random() * sampleCombos.length)];
+      setTopic(picked.topic);
+      setWord(picked.words[Math.floor(Math.random() * picked.words.length)]);
+    }
+  }, [category, level, isSessionActive, resetTimer]);
+
+  // Timer controls: counts down to minimum threshold, then continues into overtime
+  const toggleTimer = () => {
+    if (isRunning) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      setIsRunning(false);
+    } else {
+      setIsRunning(true);
+      setIsSessionActive(true); // Lock rerolls while speaking
+
+      timerRef.current = setInterval(() => {
+        setTotalSpokenSeconds((prev) => prev + 1);
+
+        setTimerRemaining((rem) => {
+          if (rem > 1) {
+            return rem - 1;
+          } else if (rem === 1) {
+            setIsMinTimeMet(true);
+            playChime();
+            return 0;
+          } else {
+            setOvertimeSeconds((ot) => ot + 1);
+            return 0;
+          }
+        });
+      }, 1000);
+    }
+  };
+
+  // Reveal to audience
+  const handleRevealToAudience = () => {
+    if (isRunning && timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+      setIsRunning(false);
+    }
+    setIsPermanentlyRevealed(true);
+    setShowModal(true);
+  };
+
+  const handleNextSpeaker = () => {
+    setShowModal(false);
+    setIsSessionActive(false);
+    fetchCombo();
+  };
+
+  const displayTime = () => {
+    if (!isMinTimeMet) {
+      const m = Math.floor(timerRemaining / 60);
+      const s = timerRemaining % 60;
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    } else {
+      const total = minTimeTarget + overtimeSeconds;
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+  };
+
+  return (
+    <div className="w-full max-w-xl mx-auto p-4 text-slate-100 font-sans">
+      {/* Top Banner */}
+      <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+        <div className="flex items-center gap-2">
+          <span className="bg-white text-slate-950 text-xs font-black px-2 py-0.5 rounded">GAME</span>
+          <span className="font-extrabold text-lg tracking-tight">The Secret Word</span>
+        </div>
+        <span className="text-xs text-slate-400 font-medium">Session Mode</span>
+      </div>
+
+      {/* Rules Notice */}
+      <div className="bg-slate-900 border-l-4 border-sky-400 p-3 rounded-lg text-xs sm:text-sm text-slate-300 mb-4 leading-relaxed">
+        🎯 <strong>The Challenge:</strong> Speak on the topic for <strong>at least the minimum time</strong> (speak as long as you want!). Sneak the secret word in naturally for the target count.
+      </div>
+
+      {/* Category Pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1 mb-4">
+        {[
+          { id: 'all', label: '✨ All Fun' },
+          { id: 'fun', label: '😂 Silly & Fun' },
+          { id: 'hottakes', label: '🔥 Hot Takes' },
+          { id: 'awkward', label: '😬 Awkward' },
+        ].map((pill) => (
+          <button
+            key={pill.id}
+            type="button"
+            disabled={isSessionActive}
+            onClick={() => setCategory(pill.id)}
+            className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${category === pill.id
+              ? 'bg-white text-slate-950 border-white'
+              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white disabled:opacity-30'
+              }`}
+          >
+            {pill.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Session Active Warning */}
+      {isSessionActive && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold py-2 px-3 rounded-lg mb-4">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+          <span>Speaking session in progress (Rerolls locked)</span>
+        </div>
+      )}
+
+      {/* Board */}
+      <div className="space-y-4">
+        {/* Topic Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 shadow-lg">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-800 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+            <span>TOPIC TO SPEAK ABOUT</span>
+            <button
+              type="button"
+              disabled={isSessionActive}
+              onClick={fetchCombo}
+              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-30"
+            >
+              ↺ New Topic
+            </button>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold leading-snug">{topic}</h2>
+        </div>
+
+        {/* Secret Word Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 shadow-lg">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-800 text-[11px] font-extrabold tracking-wider">
+            <span className="text-sky-400 uppercase">
+              {isPermanentlyRevealed ? 'SECRET WORD (REVEALED)' : 'SECRET WORD (HOLD TO PEEK)'}
+            </span>
+            <button
+              type="button"
+              disabled={isSessionActive}
+              onClick={fetchCombo}
+              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-30"
+            >
+              ↺ New Word
+            </button>
+          </div>
+
+          {/* Press and Hold Peek Box */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={isPermanentlyRevealed ? "Secret word revealed" : "Press and hold to view secret word"}
+            onMouseDown={() => !isPermanentlyRevealed && setIsHeld(true)}
+            onMouseUp={() => !isPermanentlyRevealed && setIsHeld(false)}
+            onMouseLeave={() => !isPermanentlyRevealed && setIsHeld(false)}
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') {
+                if (!isPermanentlyRevealed) setIsHeld(true);
+              }
+            }}
+            onKeyUp={() => !isPermanentlyRevealed && setIsHeld(false)}
+            onTouchStart={(e) => {
+              if (!isPermanentlyRevealed) {
+                e.preventDefault();
+                setIsHeld(true);
+              }
+            }}
+            onTouchEnd={() => !isPermanentlyRevealed && setIsHeld(false)}
+            onContextMenu={(e) => e.preventDefault()}
+            className={`p-6 rounded-lg text-center cursor-pointer select-none transition-all mb-4 outline-none focus:ring-2 focus:ring-sky-400 ${isPermanentlyRevealed || isHeld
+              ? 'bg-slate-950 border-2 border-yellow-400'
+              : 'bg-slate-950/60 border-2 border-dashed border-slate-800 hover:border-slate-700'
+              }`}
+          >
+            {isPermanentlyRevealed || isHeld ? (
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-black tracking-wider text-yellow-400 uppercase mb-1">
+                  {word}
+                </h1>
+                <p className="text-xs text-slate-400">
+                  Repeat this word at least <strong className="text-white">{targetReps} times</strong> naturally!
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-1.5 py-1">
+                <Lock className="w-5 h-5 text-slate-400 mb-1" />
+                <span className="text-sm font-extrabold tracking-wide text-slate-200">
+                  PRESS & HOLD TO VIEW WORD
+                </span>
+                <small className="text-[11px] text-slate-400 uppercase">Release finger to hide instantly</small>
+              </div>
+            )}
+          </div>
+
+          {/* Stepper for Minimum Repetitions */}
+          <div className="flex items-center justify-between bg-slate-950 border border-slate-800 p-2.5 rounded-lg mb-3">
+            <span className="text-xs font-semibold text-slate-400">Target repetitions:</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={isSessionActive}
+                onClick={() => setTargetReps((r) => Math.max(1, r - 1))}
+                className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 text-white font-bold hover:bg-slate-700 disabled:opacity-30"
+              >
+                −
+              </button>
+              <span className="w-7 text-center font-extrabold text-sky-400 text-sm">{targetReps}</span>
+              <button
+                type="button"
+                disabled={isSessionActive}
+                onClick={() => setTargetReps((r) => Math.min(10, r + 1))}
+                className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 text-white font-bold hover:bg-slate-700 disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Repeat Tracker (Appears ONLY when speech / timer starts!) */}
+          {(isSessionActive || isPermanentlyRevealed) && (
+            <div className="flex items-center justify-between bg-slate-950 border border-slate-800 p-2.5 rounded-lg">
+              <span className="text-xs font-semibold text-slate-400">
+                Times spoken: <strong className="text-sky-400">{repeatCount}</strong>/{targetReps}
+              </span>
+              <div className="flex gap-2 flex-wrap">
+                {Array.from({ length: targetReps }).map((_, idx) => {
+                  const countNum = idx + 1;
+                  const isDone = countNum <= repeatCount;
+                  return (
+                    <button
+                      key={countNum}
+                      type="button"
+                      onClick={() => setRepeatCount(isDone ? countNum - 1 : countNum)}
+                      className={`w-8 h-8 rounded-full font-extrabold text-xs flex items-center justify-center border transition-all ${isDone
+                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-600/30'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
+                        }`}
+                    >
+                      {countNum}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Permanent Reveal Score Banner */}
+          {isPermanentlyRevealed && (
+            <div className="mt-3 p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center">
+              {repeatCount >= targetReps
+                ? `🎉 Target Achieved: Spoken ${repeatCount} of ${targetReps} times!`
+                : `⚠️ Target Missed: Spoken ${repeatCount} of ${targetReps} times (${targetReps - repeatCount} short)`}
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <button
+            type="button"
+            disabled={isSessionActive}
+            onClick={fetchCombo}
+            className="w-full py-3.5 px-4 rounded-xl font-extrabold bg-white text-slate-950 hover:bg-slate-100 active:translate-y-0.5 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+          >
+            🎲 Roll New Combo
+          </button>
+          <button
+            type="button"
+            onClick={handleRevealToAudience}
+            className="w-full py-3.5 px-4 rounded-xl font-bold border border-slate-700 bg-slate-900 hover:bg-slate-800 active:translate-y-0.5 transition-all text-white flex items-center justify-center gap-2"
+          >
+            📢 Reveal to Audience
+          </button>
+        </div>
+
+        {/* Timer Section (Open-ended: speak as long as you want!) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-slate-400">
+                {isMinTimeMet ? '🎙 Speaking:' : '⏱ Min Time:'}
+              </span>
+              <span
+                className={`text-2xl font-black font-mono tracking-tight ${isMinTimeMet ? 'text-emerald-400' : 'text-white'
+                  }`}
+              >
+                {displayTime()}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={toggleTimer}
+                className={`px-4 py-1.5 rounded-lg text-xs font-extrabold text-slate-950 transition-all ${isMinTimeMet
+                  ? 'bg-emerald-400 hover:bg-emerald-300 text-slate-950'
+                  : isRunning
+                    ? 'bg-amber-500 hover:bg-amber-400 text-white'
+                    : 'bg-sky-400 hover:bg-sky-300'
+                  }`}
+              >
+                {isMinTimeMet ? 'Finish Speech' : isRunning ? 'Pause' : 'Start'}
+              </button>
+              <button
+                type="button"
+                onClick={resetTimer}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800 flex-wrap">
+            <span className="text-[11px] uppercase font-bold text-slate-400 mr-1">Threshold:</span>
+            {[
+              { label: '1m', s: 60 },
+              { label: '2m', s: 120 },
+              { label: '2:30', s: 150 },
+              { label: '3m', s: 180 },
+            ].map((preset) => (
+              <button
+                key={preset.s}
+                type="button"
+                onClick={() => {
+                  setMinTimeTarget(preset.s);
+                  setTimerRemaining(preset.s);
+                  setIsMinTimeMet(false);
+                  setIsRunning(false);
+                  setIsSessionActive(false);
+                }}
+                className={`px-2.5 py-1 rounded text-xs font-semibold border ${minTimeTarget === preset.s
+                  ? 'bg-slate-700 text-white border-sky-400'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Audience Reveal Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setShowModal(false)}
+              className="absolute top-3 right-3 text-slate-400 hover:text-white text-lg font-bold"
+            >
+              ✕
+            </button>
+            <span className="text-[11px] font-black text-sky-400 uppercase tracking-widest block mb-1">
+              TIME&apos;S UP! AUDIENCE GUESS!
+            </span>
+            <h3 className="text-lg font-extrabold mb-4">Did the audience guess the secret word?</h3>
+
+            <div className="bg-slate-950 border-2 border-dashed border-sky-400/60 rounded-xl p-4 mb-5">
+              <span className="text-xs text-slate-400 font-medium block mb-1">The secret word was:</span>
+              <h1 className="text-3xl font-black text-yellow-400 uppercase tracking-wider">{word}</h1>
+              <div className="mt-3 pt-2.5 border-t border-slate-800 text-xs text-slate-300">
+                Speaker repeated it:{' '}
+                <strong className="text-sky-400">
+                  {repeatCount} of {targetReps} times {repeatCount >= targetReps ? '(Target Met! 🎉)' : ''}
+                </strong>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Total speaking time:{' '}
+                <strong className="text-white">
+                  {Math.floor(totalSpokenSeconds / 60)}m {totalSpokenSeconds % 60}s
+                </strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNextSpeaker}
+              className="w-full py-3 rounded-xl bg-white text-slate-950 font-extrabold hover:bg-slate-100 transition-all"
+            >
+              Next Speaker →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

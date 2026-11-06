@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer API & Game Docs | The Secret Word</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .doc-container {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .doc-section {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .doc-section h2 {
+      font-size: 1.3rem;
+      margin-bottom: 12px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    .doc-section h3 {
+      font-size: 1rem;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .doc-section p, .doc-section li {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .doc-section strong {
+      color: #ffffff;
+    }
+    .doc-section ul, .doc-section ol {
+      margin-left: 20px;
+      margin-top: 8px;
+      margin-bottom: 14px;
+    }
+    code {
+      font-family: monospace;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      color: var(--word-highlight);
+    }
+    pre {
+      background: #090a0f;
+      color: #38bdf8;
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 0.85rem;
+      margin: 10px 0 16px;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #ffffff;
+      text-decoration: none;
+      margin-bottom: 20px;
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+    .back-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-light);
+    }
+  </style>
+</head>
+<body>
+  <div class="doc-container">
+    <a href="index.html" class="back-btn">← Back to Secret Word Game</a>
+
+    <header style="margin-bottom: 24px;">
+      <h1 style="font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; color: #ffffff;">Developer API & Game Rules</h1>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 6px;">
+        Documentation for the Secret Word party session game & REST API integration.
+      </p>
+    </header>
+
+    <!-- Game Rules -->
+    <section class="doc-section">
+      <h2>🎮 How the Speaking Game Works</h2>
+      <ol>
+        <li><strong>Step 1 (The Speaker):</strong> The speaker taps <em>"Roll New Combo"</em> to get a Topic (e.g. <em>"Why cereal is cold soup"</em>) and a secret Word (e.g. <em>"SPAGHETTI"</em>).</li>
+        <li><strong>Step 2 (The Speech):</strong> The speaker speaks on the topic for 1–2 minutes. They must weave the secret word into their speech <strong>at least 3 times</strong> naturally.</li>
+        <li><strong>Step 3 (The Audience Guess):</strong> Once the speaker finishes, the audience tries to guess what the secret word was!</li>
+        <li><strong>Step 4 (Reveal):</strong> The moderator taps <em>"Reveal to Audience"</em> to show the word and award points.</li>
+      </ol>
+    </section>
+
+    <!-- REST API Specification -->
+    <section class="doc-section">
+      <h2>📡 REST API Endpoint: <code>GET /api/combo</code></h2>
+      <p>External apps, bots, and tools can call this endpoint to get a fun topic and secret word formatted as JSON.</p>
+
+      <h3>Query Parameters</h3>
+      <ul>
+        <li><code>category</code> (optional): <code>all</code> (default), <code>fun</code>, <code>hottakes</code>, <code>awkward</code>, <code>roast</code>, <code>conspiracy</code>.</li>
+        <li><code>level</code> (optional): <code>all</code> (default), <code>easy</code>, <code>medium</code>, <code>hard</code>.</li>
+      </ul>
+
+      <h3>cURL Example</h3>
+      <pre>curl "https://your-site.vercel.app/api/combo?category=fun&level=medium"</pre>
+
+      <h3>JavaScript (fetch) Example</h3>
+      <pre>const res = await fetch("https://your-site.vercel.app/api/combo?category=fun&level=medium");
+const { data } = await res.json();
+
+console.log("Topic:", data.topic);
+console.log("Secret Word:", data.word);
+console.log("Rules:", data.rules);</pre>
+
+      <h3>Sample JSON Response</h3>
+      <pre>{
+  "success": true,
+  "data": {
+    "topic": "Why cereal is technically a cold soup",
+    "word": "CHEMISTRY",
+    "category": "fun",
+    "level": "medium",
+    "rules": "Speak on \"Why cereal is technically a cold soup\" and secretly repeat the word \"CHEMISTRY\" at least 3 times. Audience must guess the word!"
+  },
+  "timestamp": "2026-11-07T00:00:00.000Z"
+}</pre>
+    </section>
+
+    <!-- Vercel Deployment -->
+    <section class="doc-section">
+      <h2>🚀 Deploying to Vercel in 1 Minute</h2>
+      <ol>
+        <li>Push this folder to a GitHub repository or drag-and-drop it into the <strong>Vercel Dashboard</strong>.</li>
+        <li>Vercel automatically detects the static frontend and the serverless API in <code>/api/combo.js</code>.</li>
+        <li>The clean URL <code>/doc</code> automatically serves this documentation page via <code>vercel.json</code>.</li>
+      </ol>
+    </section>
+  </div>
+</body>
+</html>

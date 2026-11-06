@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Secret Word | Fun Impromptu Speaking Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="app-wrap">
+
+    <!-- Top Navigation -->
+    <header class="top-nav">
+      <div class="logo">
+        <span class="logo-title">THE SECRET WORD</span>
+        <span class="game-tag">GAME</span>
+      </div>
+    </header>
+
+    <!-- Rule Hint -->
+    <div class="rules-card">
+      <p>🎯 <strong>The Challenge:</strong> Speak on the topic for <strong>at least the minimum time</strong> (you can
+        take as long as you want!). Sneak the secret word in naturally for the target count. The audience has to guess
+        your word!</p>
+    </div>
+
+    <!-- Category Filter Pills -->
+    <div class="filter-row">
+      <button class="pill active" data-cat="all">✨ All Topics</button>
+      <button class="pill" data-cat="fun">😂 Silly & Fun</button>
+      <button class="pill" data-cat="hottakes">🔥 Hot Takes</button>
+      <button class="pill" data-cat="awkward">😬 Awkward</button>
+      <button class="pill" data-cat="roast">🎯 Roasts</button>
+      <button class="pill" data-cat="conspiracy">👽 Conspiracies</button>
+    </div>
+
+    <!-- Difficulty Level Filter Chips -->
+    <div class="level-row">
+      <span class="level-title">Difficulty:</span>
+      <button class="level-chip active" data-level="all">All Levels</button>
+      <button class="level-chip" data-level="easy">🟢 Easy</button>
+      <button class="level-chip" data-level="medium">🟡 Medium</button>
+      <button class="level-chip" data-level="hard">🔴 Hard</button>
+    </div>
+
+    <!-- Session Status Bar (shows when locked during speech) -->
+    <div id="session-status-bar" class="session-status" style="display: none;">
+      <span class="pulse-dot"></span>
+      <span id="session-status-text">Speaking session in progress (Rerolls locked)</span>
+    </div>
+
+    <!-- Game Board -->
+    <main class="board">
+
+      <!-- Topic Card -->
+      <section class="game-card">
+        <div class="card-bar">
+          <span class="tag">TOPIC TO SPEAK ABOUT</span>
+          <button id="btn-reroll-topic" class="btn-subtle" title="Get another topic">↺ New Topic</button>
+        </div>
+        <div class="card-content">
+          <h2 id="topic-display" class="topic-text">Why cereal is technically a cold soup</h2>
+        </div>
+      </section>
+
+      <!-- Secret Word Card (Press & Hold to View / Permanently Unrevealed after Reveal) -->
+      <section class="game-card word-card">
+        <div class="card-bar">
+          <span id="word-card-tag" class="tag tag-word">SECRET WORD (HOLD TO PEEK)</span>
+          <div class="card-actions">
+            <button id="btn-reroll-word" class="btn-subtle" title="Get another word">↺ New Word</button>
+          </div>
+        </div>
+
+        <div class="card-content">
+          <!-- Hold-to-Reveal Press Container -->
+          <div id="peek-container" class="peek-box" role="button" tabindex="0">
+            <!-- Hidden State (Default before reveal) -->
+            <div id="peek-hidden" class="peek-hidden">
+              <span class="peek-icon">🔒</span>
+              <span class="peek-main-label">PRESS & HOLD TO VIEW WORD</span>
+              <small class="peek-sub-label">Release finger/mouse to hide instantly</small>
+            </div>
+
+            <!-- Visible State (Active when held or permanently shown after reveal) -->
+            <div id="peek-revealed" class="peek-revealed" style="display: none;">
+              <h1 id="word-display" class="word-text">CHEMISTRY</h1>
+              <p id="word-instruction" class="word-hint">Repeat this word at least <strong id="hint-target-count">3
+                  times</strong> naturally!</p>
+            </div>
+          </div>
+
+          <!-- Target Repetition Controls -->
+          <div class="target-setting-row">
+            <span class="target-label">Target repetitions:</span>
+            <div class="stepper">
+              <button id="btn-rep-minus" class="btn-step" type="button" aria-label="Decrease target">−</button>
+              <span id="target-rep-val" class="rep-val">3</span>
+              <button id="btn-rep-plus" class="btn-step" type="button" aria-label="Increase target">+</button>
+            </div>
+          </div>
+
+          <!-- Dynamic Repetition Tracker (Appears ONLY when speech / timer starts!) -->
+          <div id="repeat-tracker-wrap" class="repeat-tracker" style="display: none;">
+            <div class="tracker-info">
+              <span class="tracker-label">Times spoken: <strong id="spoken-count-display"
+                  class="spoken-counter">0</strong>/<span id="spoken-target-display">3</span></span>
+              <span id="speech-indicator" class="speech-status" style="display: none;">🎙️ Listening...</span>
+            </div>
+            <!-- Dynamically populated based on target repetitions -->
+            <div id="tracker-dots" class="tracker-dots">
+              <button class="dot" data-count="1" aria-label="Spoken 1 times" type="button">1</button>
+              <button class="dot" data-count="2" aria-label="Spoken 2 times" type="button">2</button>
+              <button class="dot" data-count="3" aria-label="Spoken 3 times" type="button">3</button>
+            </div>
+          </div>
+
+          <!-- Final Repetition Badge (Shown after revealing) -->
+          <div id="revealed-score-banner" class="revealed-score-banner" style="display: none;">
+            <span id="revealed-score-text">Repeated 3 of 3 times (Target Achieved! 🎉)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Primary Action: Roll New Round & Reveal to Audience -->
+      <div class="action-row">
+        <button id="btn-spin-all" class="btn-primary">
+          🎲 Roll New Combo
+        </button>
+        <button id="btn-reveal-audience" class="btn-secondary">
+          📢 Reveal to Audience
+        </button>
+      </div>
+
+      <!-- Minimum Speaking Timer Section (Open-ended: speak as long as you want!) -->
+      <section class="timer-box">
+        <div class="timer-top-row">
+          <div class="timer-left">
+            <span id="timer-label-status" class="timer-status">⏱ Min Time:</span>
+            <span id="timer-text" class="timer-clock">2:30</span>
+          </div>
+          <div class="timer-controls">
+            <button id="btn-timer-start" class="btn-timer">Start</button>
+            <button id="btn-timer-reset" class="btn-timer-subtle">Reset</button>
+          </div>
+        </div>
+
+        <!-- Presets and Custom Time Input for Minimum Time Threshold -->
+        <div class="timer-presets-row">
+          <span class="presets-label">Min Threshold:</span>
+          <button class="time-chip" data-time="60">1m</button>
+          <button class="time-chip" data-time="120">2m</button>
+          <button class="time-chip active" data-time="150">2:30</button>
+          <button class="time-chip" data-time="180">3m</button>
+
+          <!-- Custom mm:ss Input -->
+          <div class="custom-time-wrap" title="Set custom minimum time (saved to browser)">
+            <input type="number" id="input-custom-min" min="0" max="59" value="2" class="time-input"
+              aria-label="Minutes">:
+            <input type="number" id="input-custom-sec" min="0" max="59" value="30" class="time-input"
+              aria-label="Seconds">
+            <button id="btn-save-custom-time" class="btn-set-time">Set</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Audience Reveal Modal -->
+    <div id="reveal-modal" class="modal" style="display: none;">
+      <div class="modal-card">
+        <button id="btn-close-modal" class="modal-close">✕</button>
+        <span class="modal-label">TIME'S UP! AUDIENCE GUESS!</span>
+        <h3 class="modal-question">Did the audience guess the secret word?</h3>
+
+        <div class="modal-word-box">
+          <span class="modal-sub">The secret word was:</span>
+          <h1 id="modal-word-text" class="modal-word">CHEMISTRY</h1>
+          <div id="modal-repeat-summary" class="modal-rep-summary">
+            Speaker repeated it: <strong id="modal-repeat-count-text">3 of 3 times</strong>
+          </div>
+          <div id="modal-speaking-time" class="modal-time-summary">
+            Total speaking time: <strong id="modal-total-time-text">2:35</strong>
+          </div>
+        </div>
+
+        <button id="btn-modal-next" class="btn-primary" style="width: 100%; margin-top: 20px;">
+          Next Speaker →
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Made for public speaking clubs & fun party sessions • <a href="https://shidan.magmc.in/" target="_blank">YTS
+          Developments</a></p>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
