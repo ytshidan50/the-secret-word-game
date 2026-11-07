@@ -2,10 +2,60 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Lock } from 'lucide-react';
+import gameData from './data/game_data.json';
+
+// Helper functions for pure dataset selection
+function getCandidatesFromData(selectedCat: string, selectedLvl: string) {
+  const categories = (gameData && (gameData as any).categories) || {};
+  let pool: any[] = [];
+  Object.keys(categories).forEach((cId) => {
+    if (selectedCat !== 'all' && selectedCat !== cId) return;
+    const cat = categories[cId];
+    if (cat && cat.levels) {
+      Object.keys(cat.levels).forEach((lId) => {
+        if (selectedLvl !== 'all' && selectedLvl !== lId) return;
+        const list = cat.levels[lId];
+        if (Array.isArray(list)) pool = pool.concat(list);
+      });
+    }
+  });
+
+  if (pool.length === 0) {
+    Object.values(categories).forEach((c: any) => {
+      if (c && c.levels) {
+        Object.values(c.levels).forEach((lvlList: any) => {
+          if (Array.isArray(lvlList)) pool = pool.concat(lvlList);
+        });
+      }
+    });
+  }
+  return pool;
+}
+
+function getRandomTopicFromData(selectedCat: string, selectedLvl: string) {
+  const pool = getCandidatesFromData(selectedCat, selectedLvl);
+  if (pool.length === 0) return { topic: 'Loading topic...', relatedWords: ['SECRET'] };
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function getRandomWordFromData(topicObj: any, excludeWord = '') {
+  let candidates: string[] = [];
+  if (topicObj && topicObj.relatedWords && topicObj.relatedWords.length > 0) {
+    candidates = topicObj.relatedWords;
+  } else {
+    candidates = (gameData as any).words || ['SECRET'];
+  }
+  if (excludeWord && candidates.length > 1) {
+    const filtered = candidates.filter((w: string) => w.toLowerCase() !== excludeWord.toLowerCase());
+    if (filtered.length > 0) candidates = filtered;
+  }
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
 
 export default function DualComboComponent() {
-  const [topic, setTopic] = useState('Why cereal is technically a cold soup');
-  const [word, setWord] = useState('CHEMISTRY');
+  const [topic, setTopic] = useState('Loading game topic...');
+  const [word, setWord] = useState('SECRET');
+  const [currentTopicObj, setCurrentTopicObj] = useState<any>(null);
   const [category, setCategory] = useState('all');
   const [level, setLevel] = useState('all');
 
@@ -71,53 +121,6 @@ export default function DualComboComponent() {
     };
   }, []);
 
-  // Restore local session state on client mount
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem('secret_word_game_session_v2');
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (s.topic) setTopic(s.topic);
-        if (s.word) setWord(s.word);
-        if (s.category) setCategory(s.category);
-        if (s.level) setLevel(s.level);
-        if (typeof s.targetRepeats === 'number') setTargetReps(s.targetRepeats);
-        if (typeof s.repeatCount === 'number') setRepeatCount(s.repeatCount);
-        if (typeof s.minTimeTarget === 'number') setMinTimeTarget(s.minTimeTarget);
-        if (typeof s.timerRemaining === 'number') setTimerRemaining(s.timerRemaining);
-        if (typeof s.overtimeSeconds === 'number') setOvertimeSeconds(s.overtimeSeconds);
-        if (typeof s.totalSpokenSeconds === 'number') setTotalSpokenSeconds(s.totalSpokenSeconds);
-        if (typeof s.isMinTimeMet === 'boolean') setIsMinTimeMet(s.isMinTimeMet);
-        if (typeof s.isSessionActive === 'boolean') setIsSessionActive(s.isSessionActive);
-        if (typeof s.isWordPermanentlyRevealed === 'boolean') setIsPermanentlyRevealed(s.isWordPermanentlyRevealed);
-      }
-    } catch { }
-  }, []);
-
-  // Automatically save session state locally (counts, timings, word, topic)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const s = {
-        topic,
-        word,
-        category,
-        level,
-        targetRepeats: targetReps,
-        repeatCount,
-        minTimeTarget,
-        timerRemaining,
-        overtimeSeconds,
-        totalSpokenSeconds,
-        isMinTimeMet,
-        isSessionActive,
-        isPermanentlyRevealed
-      };
-      localStorage.setItem('secret_word_game_session_v2', JSON.stringify(s));
-    } catch { }
-  }, [topic, word, category, level, targetReps, repeatCount, minTimeTarget, timerRemaining, overtimeSeconds, totalSpokenSeconds, isMinTimeMet, isSessionActive, isPermanentlyRevealed]);
-
   const resetTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -132,52 +135,103 @@ export default function DualComboComponent() {
   }, [minTimeTarget]);
 
   const fetchCombo = useCallback(async () => {
-    if (isSessionActive) return;
+    if (isRunning) return; // Locked only while actively speaking
     setIsPermanentlyRevealed(false);
     setRepeatCount(0);
+    setIsSessionActive(false);
     resetTimer();
 
     try {
       const res = await fetch(`/api/combo?category=${category}&level=${level}`);
-      if (!res.ok) throw new Error('Network response not ok');
-      const json = await res.json();
-      if (json.success && json.data) {
-        setTopic(json.data.topic);
-        setWord(String(json.data.word).toUpperCase());
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setTopic(json.data.topic);
+          setWord(String(json.data.word).toUpperCase());
+          setCurrentTopicObj({ topic: json.data.topic, relatedWords: [json.data.word] });
+          return;
+        }
       }
     } catch {
-      // Fallback local curated dataset with subtle topic-word relations
-      const sampleCombos = [
-        {
-          topic: "Why cereal is technically a cold soup",
-          words: ["CHEMISTRY", "RECIPE", "LIQUID", "CHEF", "TRADITION", "TEMPERATURE"]
-        },
-        {
-          topic: "How to survive a zombie apocalypse using only items in this room",
-          words: ["WEAPON", "BANDAGE", "FLASHLIGHT", "PANIC", "DEFENSE", "OXYGEN"]
-        },
-        {
-          topic: "Why socks with sandals is misunderstood high fashion",
-          words: ["DESIGNER", "CONFIDENCE", "RUNWAY", "COMFORT", "REVOLUTION", "AESTHETIC"]
-        },
-        {
-          topic: "Convince us that aliens exist and they are secretly disappointed in us",
-          words: ["TELESCOPE", "DIPLOMAT", "EMBARRASSING", "CIVILIZATION", "SATELLITE"]
-        },
-        {
-          topic: "Why morning people cannot be trusted before 10 a.m.",
-          words: ["SUNSHINE", "CONSPIRACY", "ENERGY", "SUSPICIOUS", "ROUTINE", "DANGER"]
-        },
-        {
-          topic: "The conspiracy theory that pigeons are government surveillance drones",
-          words: ["BATTERY", "FEATHER", "ROOFTOP", "STATUE", "CAMERA", "SIGNAL"]
-        }
-      ];
-      const picked = sampleCombos[Math.floor(Math.random() * sampleCombos.length)];
-      setTopic(picked.topic);
-      setWord(picked.words[Math.floor(Math.random() * picked.words.length)]);
+      // Offline fallback: select purely from game_data.json
     }
-  }, [category, level, isSessionActive, resetTimer]);
+
+    const item = getRandomTopicFromData(category, level);
+    setCurrentTopicObj(item);
+    setTopic(item.topic);
+    const pickedWord = getRandomWordFromData(item);
+    setWord(String(pickedWord).toUpperCase());
+  }, [category, level, isRunning, resetTimer]);
+
+  const rerollTopic = useCallback(() => {
+    if (isRunning) return;
+    const item = getRandomTopicFromData(category, level);
+    setCurrentTopicObj(item);
+    setTopic(item.topic);
+    const pickedWord = getRandomWordFromData(item);
+    setWord(String(pickedWord).toUpperCase());
+    setRepeatCount(0);
+  }, [category, level, isRunning]);
+
+  const rerollWord = useCallback(() => {
+    if (isRunning) return;
+    const pickedWord = getRandomWordFromData(currentTopicObj, word);
+    setWord(String(pickedWord).toUpperCase());
+    setRepeatCount(0);
+  }, [currentTopicObj, word, isRunning]);
+
+  // Restore local session state on client mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('secret_word_game_session_v2');
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s.topic) setTopic(s.topic);
+        if (s.word) setWord(s.word);
+        if (s.topicObj) setCurrentTopicObj(s.topicObj);
+        if (s.category) setCategory(s.category);
+        if (s.level) setLevel(s.level);
+        if (typeof s.targetRepeats === 'number') setTargetReps(s.targetRepeats);
+        if (typeof s.repeatCount === 'number') setRepeatCount(s.repeatCount);
+        if (typeof s.minTimeTarget === 'number') setMinTimeTarget(s.minTimeTarget);
+        if (typeof s.timerRemaining === 'number') setTimerRemaining(s.timerRemaining);
+        if (typeof s.overtimeSeconds === 'number') setOvertimeSeconds(s.overtimeSeconds);
+        if (typeof s.totalSpokenSeconds === 'number') setTotalSpokenSeconds(s.totalSpokenSeconds);
+        if (typeof s.isMinTimeMet === 'boolean') setIsMinTimeMet(s.isMinTimeMet);
+        if (typeof s.isSessionActive === 'boolean') setIsSessionActive(s.isSessionActive);
+        if (typeof s.isWordPermanentlyRevealed === 'boolean') setIsPermanentlyRevealed(s.isWordPermanentlyRevealed);
+      } else {
+        fetchCombo();
+      }
+    } catch {
+      fetchCombo();
+    }
+  }, [fetchCombo]);
+
+  // Automatically save session state locally (counts, timings, word, topic)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const s = {
+        topic,
+        word,
+        topicObj: currentTopicObj,
+        category,
+        level,
+        targetRepeats: targetReps,
+        repeatCount,
+        minTimeTarget,
+        timerRemaining,
+        overtimeSeconds,
+        totalSpokenSeconds,
+        isMinTimeMet,
+        isSessionActive,
+        isPermanentlyRevealed
+      };
+      localStorage.setItem('secret_word_game_session_v2', JSON.stringify(s));
+    } catch { }
+  }, [topic, word, currentTopicObj, category, level, targetReps, repeatCount, minTimeTarget, timerRemaining, overtimeSeconds, totalSpokenSeconds, isMinTimeMet, isSessionActive, isPermanentlyRevealed]);
 
   // Timer controls: counts down to minimum threshold, then continues into overtime
   const toggleTimer = () => {
@@ -189,7 +243,7 @@ export default function DualComboComponent() {
       setIsRunning(false);
     } else {
       setIsRunning(true);
-      setIsSessionActive(true); // Lock rerolls while speaking
+      setIsSessionActive(true);
 
       timerRef.current = setInterval(() => {
         setTotalSpokenSeconds((prev) => prev + 1);
@@ -259,20 +313,23 @@ export default function DualComboComponent() {
       {/* Category Pills */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-4">
         {[
-          { id: 'all', label: '✨ All Fun' },
+          { id: 'all', label: '✨ All Categories' },
           { id: 'fun', label: '😂 Silly & Fun' },
           { id: 'hottakes', label: '🔥 Hot Takes' },
           { id: 'awkward', label: '😬 Awkward' },
+          { id: 'roast', label: '🎯 Light Roast' },
+          { id: 'conspiracy', label: '🕵️ Conspiracy' },
         ].map((pill) => (
           <button
             key={pill.id}
             type="button"
-            disabled={isSessionActive}
+            disabled={isRunning}
             onClick={() => setCategory(pill.id)}
-            className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${category === pill.id
-              ? 'bg-white text-slate-950 border-white'
-              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white disabled:opacity-30'
-              }`}
+            className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+              category === pill.id
+                ? 'bg-white text-slate-950 border-white'
+                : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white disabled:opacity-30'
+            }`}
           >
             {pill.label}
           </button>
@@ -280,10 +337,10 @@ export default function DualComboComponent() {
       </div>
 
       {/* Session Active Warning */}
-      {isSessionActive && (
+      {isRunning && (
         <div className="flex items-center justify-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold py-2 px-3 rounded-lg mb-4">
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-          <span>Speaking session in progress (Rerolls locked)</span>
+          <span>Speaking session in progress (Rerolls locked during speech)</span>
         </div>
       )}
 
@@ -295,8 +352,8 @@ export default function DualComboComponent() {
             <span>TOPIC TO SPEAK ABOUT</span>
             <button
               type="button"
-              disabled={isSessionActive}
-              onClick={fetchCombo}
+              disabled={isRunning}
+              onClick={rerollTopic}
               className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-30"
             >
               ↺ New Topic
@@ -313,8 +370,8 @@ export default function DualComboComponent() {
             </span>
             <button
               type="button"
-              disabled={isSessionActive}
-              onClick={fetchCombo}
+              disabled={isRunning}
+              onClick={rerollWord}
               className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-30"
             >
               ↺ New Word
@@ -325,7 +382,7 @@ export default function DualComboComponent() {
           <div
             role="button"
             tabIndex={0}
-            aria-label={isPermanentlyRevealed ? "Secret word revealed" : "Press and hold to view secret word"}
+            aria-label={isPermanentlyRevealed ? 'Secret word revealed' : 'Press and hold to view secret word'}
             onMouseDown={() => !isPermanentlyRevealed && setIsHeld(true)}
             onMouseUp={() => !isPermanentlyRevealed && setIsHeld(false)}
             onMouseLeave={() => !isPermanentlyRevealed && setIsHeld(false)}
@@ -343,10 +400,11 @@ export default function DualComboComponent() {
             }}
             onTouchEnd={() => !isPermanentlyRevealed && setIsHeld(false)}
             onContextMenu={(e) => e.preventDefault()}
-            className={`p-6 rounded-lg text-center cursor-pointer select-none transition-all mb-4 outline-none focus:ring-2 focus:ring-sky-400 ${isPermanentlyRevealed || isHeld
-              ? 'bg-slate-950 border-2 border-yellow-400'
-              : 'bg-slate-950/60 border-2 border-dashed border-slate-800 hover:border-slate-700'
-              }`}
+            className={`p-6 rounded-lg text-center cursor-pointer select-none transition-all mb-4 outline-none focus:ring-2 focus:ring-sky-400 ${
+              isPermanentlyRevealed || isHeld
+                ? 'bg-slate-950 border-2 border-yellow-400'
+                : 'bg-slate-950/60 border-2 border-dashed border-slate-800 hover:border-slate-700'
+            }`}
           >
             {isPermanentlyRevealed || isHeld ? (
               <div>
@@ -374,7 +432,7 @@ export default function DualComboComponent() {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                disabled={isSessionActive}
+                disabled={isRunning}
                 onClick={() => setTargetReps((r) => Math.max(1, r - 1))}
                 className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 text-white font-bold hover:bg-slate-700 disabled:opacity-30"
               >
@@ -383,7 +441,7 @@ export default function DualComboComponent() {
               <span className="w-7 text-center font-extrabold text-sky-400 text-sm">{targetReps}</span>
               <button
                 type="button"
-                disabled={isSessionActive}
+                disabled={isRunning}
                 onClick={() => setTargetReps((r) => Math.min(10, r + 1))}
                 className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 text-white font-bold hover:bg-slate-700 disabled:opacity-30"
               >
@@ -392,7 +450,7 @@ export default function DualComboComponent() {
             </div>
           </div>
 
-          {/* Repeat Tracker (Appears ONLY when speech / timer starts!) */}
+          {/* Repeat Tracker (Appears when speech / session is active or word is revealed) */}
           {(isSessionActive || isPermanentlyRevealed) && (
             <div className="flex items-center justify-between bg-slate-950 border border-slate-800 p-2.5 rounded-lg">
               <span className="text-xs font-semibold text-slate-400">
@@ -407,10 +465,11 @@ export default function DualComboComponent() {
                       key={countNum}
                       type="button"
                       onClick={() => setRepeatCount(isDone ? countNum - 1 : countNum)}
-                      className={`w-8 h-8 rounded-full font-extrabold text-xs flex items-center justify-center border transition-all ${isDone
-                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-600/30'
-                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
-                        }`}
+                      className={`w-8 h-8 rounded-full font-extrabold text-xs flex items-center justify-center border transition-all ${
+                        isDone
+                          ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-600/30'
+                          : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}
                     >
                       {countNum}
                     </button>
@@ -434,8 +493,12 @@ export default function DualComboComponent() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           <button
             type="button"
-            disabled={isSessionActive}
-            onClick={fetchCombo}
+            disabled={isRunning}
+            onClick={() => {
+              if (isRunning) toggleTimer();
+              setIsSessionActive(false);
+              fetchCombo();
+            }}
             className="w-full py-3.5 px-4 rounded-xl font-extrabold bg-white text-slate-950 hover:bg-slate-100 active:translate-y-0.5 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
           >
             🎲 Roll New Combo
@@ -457,8 +520,9 @@ export default function DualComboComponent() {
                 {isMinTimeMet ? '🎙 Speaking:' : '⏱ Min Time:'}
               </span>
               <span
-                className={`text-2xl font-black font-mono tracking-tight ${isMinTimeMet ? 'text-emerald-400' : 'text-white'
-                  }`}
+                className={`text-2xl font-black font-mono tracking-tight ${
+                  isMinTimeMet ? 'text-emerald-400' : 'text-white'
+                }`}
               >
                 {displayTime()}
               </span>
@@ -467,47 +531,51 @@ export default function DualComboComponent() {
               <button
                 type="button"
                 onClick={toggleTimer}
-                className={`px-4 py-1.5 rounded-lg text-xs font-extrabold text-slate-950 transition-all ${isMinTimeMet
-                  ? 'bg-emerald-400 hover:bg-emerald-300 text-slate-950'
-                  : isRunning
-                    ? 'bg-amber-500 hover:bg-amber-400 text-white'
-                    : 'bg-sky-400 hover:bg-sky-300'
-                  }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  isRunning
+                    ? 'bg-amber-500 hover:bg-amber-600 text-slate-950'
+                    : isMinTimeMet
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950'
+                    : 'bg-white hover:bg-slate-200 text-slate-950'
+                }`}
               >
-                {isMinTimeMet ? 'Finish Speech' : isRunning ? 'Pause' : 'Start'}
+                {isRunning ? 'Pause' : isMinTimeMet ? 'Finish Speech' : 'Start'}
               </button>
               <button
                 type="button"
                 onClick={resetTimer}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
               >
                 Reset
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800 flex-wrap">
-            <span className="text-[11px] uppercase font-bold text-slate-400 mr-1">Threshold:</span>
+          {/* Quick preset durations */}
+          <div className="flex gap-1.5 pt-1 overflow-x-auto">
             {[
-              { label: '1m', s: 60 },
-              { label: '2m', s: 120 },
-              { label: '2:30', s: 150 },
-              { label: '3m', s: 180 },
+              { label: '1m', sec: 60 },
+              { label: '1:30', sec: 90 },
+              { label: '2m', sec: 120 },
+              { label: '2:30', sec: 150 },
+              { label: '3m', sec: 180 },
+              { label: '5m', sec: 300 },
             ].map((preset) => (
               <button
-                key={preset.s}
+                key={preset.sec}
                 type="button"
+                disabled={isRunning}
                 onClick={() => {
-                  setMinTimeTarget(preset.s);
-                  setTimerRemaining(preset.s);
+                  setMinTimeTarget(preset.sec);
+                  setTimerRemaining(preset.sec);
                   setIsMinTimeMet(false);
-                  setIsRunning(false);
-                  setIsSessionActive(false);
+                  setOvertimeSeconds(0);
                 }}
-                className={`px-2.5 py-1 rounded text-xs font-semibold border ${minTimeTarget === preset.s
-                  ? 'bg-slate-700 text-white border-sky-400'
-                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                  }`}
+                className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${
+                  minTimeTarget === preset.sec
+                    ? 'bg-sky-500 border-sky-400 text-white'
+                    : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white disabled:opacity-30'
+                }`}
               >
                 {preset.label}
               </button>
@@ -518,44 +586,45 @@ export default function DualComboComponent() {
 
       {/* Audience Reveal Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl relative">
-            <button
-              type="button"
-              onClick={() => setShowModal(false)}
-              className="absolute top-3 right-3 text-slate-400 hover:text-white text-lg font-bold"
-            >
-              ✕
-            </button>
-            <span className="text-[11px] font-black text-sky-400 uppercase tracking-widest block mb-1">
-              TIME&apos;S UP! AUDIENCE GUESS!
-            </span>
-            <h3 className="text-lg font-extrabold mb-4">Did the audience guess the secret word?</h3>
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
+            <span className="text-4xl">🎉</span>
+            <h2 className="text-xl font-black text-white">Speech Finished!</h2>
+            <p className="text-xs text-slate-400">Can the audience guess what the secret word was?</p>
 
-            <div className="bg-slate-950 border-2 border-dashed border-sky-400/60 rounded-xl p-4 mb-5">
-              <span className="text-xs text-slate-400 font-medium block mb-1">The secret word was:</span>
-              <h1 className="text-3xl font-black text-yellow-400 uppercase tracking-wider">{word}</h1>
-              <div className="mt-3 pt-2.5 border-t border-slate-800 text-xs text-slate-300">
-                Speaker repeated it:{' '}
-                <strong className="text-sky-400">
-                  {repeatCount} of {targetReps} times {repeatCount >= targetReps ? '(Target Met! 🎉)' : ''}
-                </strong>
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+                The Secret Word Was:
+              </span>
+              <h3 className="text-3xl font-black text-yellow-400 uppercase tracking-widest">{word}</h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-left">
+              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <span className="text-[10px] text-slate-400 uppercase block font-bold">Repetition Target</span>
+                <span className="text-sm font-extrabold text-slate-200">
+                  {repeatCount} / {targetReps} times
+                </span>
               </div>
-              <div className="mt-1 text-xs text-slate-400">
-                Total speaking time:{' '}
-                <strong className="text-white">
-                  {Math.floor(totalSpokenSeconds / 60)}m {totalSpokenSeconds % 60}s
-                </strong>
+              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <span className="text-[10px] text-slate-400 uppercase block font-bold">Total Speech Time</span>
+                <span className="text-sm font-extrabold text-slate-200">
+                  {Math.floor(totalSpokenSeconds / 60)}:
+                  {totalSpokenSeconds % 60 < 10 ? '0' : ''}
+                  {totalSpokenSeconds % 60}
+                </span>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleNextSpeaker}
-              className="w-full py-3 rounded-xl bg-white text-slate-950 font-extrabold hover:bg-slate-100 transition-all"
-            >
-              Next Speaker →
-            </button>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleNextSpeaker}
+                className="w-full py-3 px-4 rounded-xl font-extrabold bg-sky-500 hover:bg-sky-400 text-white transition-all shadow-lg shadow-sky-500/25"
+              >
+                Next Speaker ➔
+              </button>
+            </div>
           </div>
         </div>
       )}

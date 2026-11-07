@@ -47,12 +47,13 @@ function handler(req, res) {
   });
 
   if (topicPool.length === 0) {
-    topicPool = [
-      {
-        topic: "Why cereal is technically a cold soup",
-        relatedWords: ["chemistry", "recipe", "liquid", "chef", "tradition", "temperature"]
+    Object.values(categories).forEach(c => {
+      if (c && c.levels) {
+        Object.values(c.levels).forEach(lvlList => {
+          if (Array.isArray(lvlList)) topicPool = topicPool.concat(lvlList);
+        });
       }
-    ];
+    });
   }
 
   const topicItem = topicPool[Math.floor(Math.random() * topicPool.length)];

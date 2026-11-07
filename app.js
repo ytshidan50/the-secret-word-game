@@ -12,92 +12,790 @@
  * - LocalStorage duration & target persistence
  */
 
-// Fallback Game Data with subtle topic-word camouflage relations
-const DEFAULT_DATA = {
-  topics: {
-    fun: [
-      {
-        topic: "Why cereal is technically a cold soup",
-        relatedWords: ["chemistry", "recipe", "liquid", "chef", "tradition", "temperature"]
-      },
-      {
-        topic: "How to survive a zombie apocalypse using only items currently in this room",
-        relatedWords: ["weapon", "bandage", "flashlight", "panic", "defense", "oxygen"]
-      },
-      {
-        topic: "Why socks with sandals is misunderstood high fashion",
-        relatedWords: ["designer", "confidence", "runway", "comfort", "revolution", "aesthetic"]
-      },
-      {
-        topic: "Convince us that aliens exist and they are secretly disappointed in us",
-        relatedWords: ["telescope", "diplomat", "embarrassing", "civilization", "satellite"]
-      },
-      {
-        topic: "Why cats are secretly plotting global domination",
-        relatedWords: ["shadow", "military", "couch", "whisper", "silent", "mastermind"]
-      },
-      {
-        topic: "Why afternoon naps should be legally mandatory for all working adults",
-        relatedWords: ["pillow", "productivity", "boss", "blanket", "energy", "routine"]
-      },
-      {
-        topic: "The conspiracy theory that pigeons are government surveillance drones",
-        relatedWords: ["battery", "feather", "rooftop", "statue", "camera", "signal"]
-      },
-      {
-        topic: "Why morning people should not be trusted before 10 a.m.",
-        relatedWords: ["sunshine", "conspiracy", "energy", "suspicious", "alarm", "danger"]
-      },
-      {
-        topic: "Why villains in movies usually have better arguments than the heroes",
-        relatedWords: ["monologue", "cape", "logic", "revenge", "philosophy", "dialogue"]
-      }
-    ],
-    hottakes: [
-      {
-        topic: "Group chats with more than 5 people are a form of punishment",
-        relatedWords: ["notification", "mute", "chaos", "drama", "typing", "escape"]
-      },
-      {
-        topic: "Voice notes longer than 30 seconds should require a written permit",
-        relatedWords: ["podcast", "transcript", "mic", "lecture", "patience", "monologue"]
-      },
-      {
-        topic: "Cold pizza for breakfast is superior to hot pizza for dinner",
-        relatedWords: ["fridge", "crust", "morning", "tradition", "microwave", "delicious"]
-      },
-      {
-        topic: "People who clap when the airplane lands should be placed on a watchlist",
-        relatedWords: ["turbulence", "runway", "celebration", "pilot", "oxygen", "embarrassing"]
-      }
-    ],
-    awkward: [
-      {
-        topic: "The panic of waving back at someone who was actually waving at the person behind you",
-        relatedWords: ["stranger", "pretend", "haircut", "disaster", "invisible", "hallway"]
-      },
-      {
-        topic: "The 5-second silence after making a joke in a meeting that nobody laughed at",
-        relatedWords: ["crickets", "microphone", "cough", "punchline", "career", "apology"]
-      },
-      {
-        topic: "Realizing you forgot someone's name 20 seconds after they introduced themselves",
-        relatedWords: ["handshake", "memory", "nickname", "amnesia", "buddy", "guilt"]
-      }
-    ]
+// Unified Game Data directly loaded from data/game_data.json
+const GAME_DATA = {
+  "meta": {
+    "title": "THE SECRET WORD GAME DATASET",
+    "version": "2.0.0",
+    "description": "Curated impromptu topics organized by category and difficulty levels, paired with subtle camouflage secret words."
   },
-  words: [
-    "banana", "spaghetti", "ninja", "suspicious", "dinosaur", "umbrella",
-    "potato", "chaos", "microwave", "majestic", "slippery", "secret",
-    "champion", "bubble", "dangerous", "superstar", "nightmare", "legendary",
-    "explosive", "awkward", "magic", "genius", "frozen", "magnetic",
-    "mystery", "treasure", "disaster", "spicy", "chocolate", "invisible",
-    "galaxy", "adventure", "monster", "detective", "cactus", "spaceship",
-    "diamond", "puzzle", "whisper", "miracle", "butter", "popcorn", "thunder"
+  "categories": {
+    "fun": {
+      "id": "fun",
+      "name": "Fun & Silly",
+      "emoji": "😂",
+      "levels": {
+        "easy": [
+          {
+            "topic": "Why cereal is technically a cold soup",
+            "relatedWords": [
+              "chemistry",
+              "recipe",
+              "liquid",
+              "chef",
+              "tradition",
+              "temperature"
+            ]
+          },
+          {
+            "topic": "Why morning people should not be trusted before 10 a.m.",
+            "relatedWords": [
+              "sunshine",
+              "conspiracy",
+              "energy",
+              "suspicious",
+              "alarm",
+              "danger"
+            ]
+          },
+          {
+            "topic": "How to eat the last slice of pizza without anyone blaming you",
+            "relatedWords": [
+              "ninja",
+              "stealth",
+              "innocent",
+              "fridge",
+              "evidence",
+              "diplomat"
+            ]
+          },
+          {
+            "topic": "The unspoken laws of choosing a grocery store checkout line",
+            "relatedWords": [
+              "cashier",
+              "receipt",
+              "patience",
+              "cart",
+              "coupon",
+              "strategy"
+            ]
+          },
+          {
+            "topic": "Why cats are secretly plotting global domination",
+            "relatedWords": [
+              "shadow",
+              "military",
+              "couch",
+              "whisper",
+              "silent",
+              "mastermind"
+            ]
+          },
+          {
+            "topic": "Why afternoon naps should be legally mandatory for all working adults",
+            "relatedWords": [
+              "pillow",
+              "productivity",
+              "boss",
+              "blanket",
+              "energy",
+              "routine"
+            ]
+          },
+          {
+            "topic": "The real reason why your left sock always goes missing in the laundry",
+            "relatedWords": [
+              "portal",
+              "machine",
+              "mystery",
+              "blackhole",
+              "monster",
+              "dimension"
+            ]
+          },
+          {
+            "topic": "Why adult board games ruin more friendships than real arguments",
+            "relatedWords": [
+              "cheating",
+              "lawyer",
+              "strategy",
+              "revenge",
+              "winner",
+              "tears"
+            ]
+          }
+        ],
+        "medium": [
+          {
+            "topic": "How to survive a zombie apocalypse using only items currently in this room",
+            "relatedWords": [
+              "weapon",
+              "bandage",
+              "flashlight",
+              "panic",
+              "defense",
+              "escape"
+            ]
+          },
+          {
+            "topic": "Why socks with sandals is misunderstood high fashion",
+            "relatedWords": [
+              "designer",
+              "confidence",
+              "runway",
+              "comfort",
+              "revolution",
+              "aesthetic"
+            ]
+          },
+          {
+            "topic": "Convince us that aliens exist and they are secretly disappointed in us",
+            "relatedWords": [
+              "telescope",
+              "diplomat",
+              "embarrassing",
+              "civilization",
+              "satellite",
+              "galaxy"
+            ]
+          },
+          {
+            "topic": "The absolute worst superpower to have in everyday life",
+            "relatedWords": [
+              "invisible",
+              "accident",
+              "curse",
+              "hospital",
+              "nuisance",
+              "explosion"
+            ]
+          },
+          {
+            "topic": "Explain your last weird Google search without looking guilty",
+            "relatedWords": [
+              "history",
+              "curiosity",
+              "detective",
+              "midnight",
+              "innocent",
+              "browser"
+            ]
+          },
+          {
+            "topic": "Pitch a completely ridiculous business idea with 100% confidence",
+            "relatedWords": [
+              "billionaire",
+              "investor",
+              "patent",
+              "monopoly",
+              "genius",
+              "profit"
+            ]
+          },
+          {
+            "topic": "Why villains in movies usually have better arguments than the heroes",
+            "relatedWords": [
+              "monologue",
+              "cape",
+              "logic",
+              "revenge",
+              "destruction",
+              "philosophy"
+            ]
+          },
+          {
+            "topic": "Convince us that humans would be much better off if we had tails",
+            "relatedWords": [
+              "balance",
+              "furniture",
+              "evolution",
+              "emotion",
+              "fluffy",
+              "posture"
+            ]
+          }
+        ],
+        "hard": [
+          {
+            "topic": "Why you should be elected Supreme Ruler of the world today",
+            "relatedWords": [
+              "throne",
+              "speech",
+              "promise",
+              "palace",
+              "lawyer",
+              "crown"
+            ]
+          },
+          {
+            "topic": "Convince the room that water is not wet",
+            "relatedWords": [
+              "molecule",
+              "surface",
+              "physics",
+              "aquarium",
+              "moisture",
+              "science"
+            ]
+          },
+          {
+            "topic": "How you would spend 10 million dollars in 24 hours without buying houses or cars",
+            "relatedWords": [
+              "charity",
+              "private",
+              "island",
+              "extravagant",
+              "ticket",
+              "helicopter"
+            ]
+          },
+          {
+            "topic": "The awkward science of figuring out what to do with your hands while walking",
+            "relatedWords": [
+              "pocket",
+              "swinging",
+              "robot",
+              "posture",
+              "sidewalk",
+              "stranger"
+            ]
+          },
+          {
+            "topic": "Why shampoo bottles have too much reading material for shower time",
+            "relatedWords": [
+              "bathroom",
+              "ingredients",
+              "boredom",
+              "literature",
+              "bubbles",
+              "poetry"
+            ]
+          },
+          {
+            "topic": "How to fake being an expert in modern art at a fancy museum",
+            "relatedWords": [
+              "glasses",
+              "chin",
+              "canvas",
+              "profound",
+              "splatter",
+              "auction"
+            ]
+          }
+        ]
+      }
+    },
+    "hottakes": {
+      "id": "hottakes",
+      "name": "Hot Takes",
+      "emoji": "🔥",
+      "levels": {
+        "easy": [
+          {
+            "topic": "Cold pizza for breakfast is superior to hot pizza for dinner",
+            "relatedWords": [
+              "fridge",
+              "crust",
+              "morning",
+              "tradition",
+              "microwave",
+              "delicious"
+            ]
+          },
+          {
+            "topic": "Making your bed every morning is an overrated waste of energy",
+            "relatedWords": [
+              "blanket",
+              "routine",
+              "neat",
+              "energy",
+              "pointless",
+              "mattress"
+            ]
+          },
+          {
+            "topic": "Popcorn at movie theaters is just an overpriced delivery vehicle for salt",
+            "relatedWords": [
+              "butter",
+              "crunchy",
+              "theater",
+              "kernel",
+              "robbery",
+              "bucket"
+            ]
+          },
+          {
+            "topic": "Small talk about the weather is an underrated conversational masterpiece",
+            "relatedWords": [
+              "umbrella",
+              "clouds",
+              "temperature",
+              "neighbor",
+              "elevator",
+              "forecast"
+            ]
+          }
+        ],
+        "medium": [
+          {
+            "topic": "Group chats with more than 5 people are a form of punishment",
+            "relatedWords": [
+              "notification",
+              "mute",
+              "chaos",
+              "drama",
+              "typing",
+              "escape"
+            ]
+          },
+          {
+            "topic": "Voice notes longer than 30 seconds should require a written permit",
+            "relatedWords": [
+              "podcast",
+              "transcript",
+              "mic",
+              "lecture",
+              "patience",
+              "monologue"
+            ]
+          },
+          {
+            "topic": "Social media was better when it was just status updates about what you ate",
+            "relatedWords": [
+              "nostalgia",
+              "sandwich",
+              "timeline",
+              "algorithm",
+              "innocent",
+              "feed"
+            ]
+          },
+          {
+            "topic": "Watching movies with subtitles on is mandatory even in your native language",
+            "relatedWords": [
+              "whisper",
+              "dialogue",
+              "accent",
+              "mumble",
+              "comprehension",
+              "cinema"
+            ]
+          },
+          {
+            "topic": "Replying to emails immediately only invites more emails to be sent to you",
+            "relatedWords": [
+              "inbox",
+              "boundary",
+              "urgent",
+              "keyboard",
+              "trap",
+              "workflow"
+            ]
+          }
+        ],
+        "hard": [
+          {
+            "topic": "People who clap when the airplane lands should be placed on a watchlist",
+            "relatedWords": [
+              "turbulence",
+              "runway",
+              "celebration",
+              "pilot",
+              "oxygen",
+              "embarrassing"
+            ]
+          },
+          {
+            "topic": "Birthdays get significantly more exhausting after the age of 21",
+            "relatedWords": [
+              "candles",
+              "cake",
+              "aging",
+              "hangover",
+              "celebration",
+              "fatigue"
+            ]
+          },
+          {
+            "topic": "Unsolicited phone calls without a warning text should be illegal",
+            "relatedWords": [
+              "ringtone",
+              "panic",
+              "vibration",
+              "voicemail",
+              "boundary",
+              "rude"
+            ]
+          },
+          {
+            "topic": "The 40-hour work week was designed for a world that no longer exists",
+            "relatedWords": [
+              "commute",
+              "exhaustion",
+              "cubicle",
+              "factory",
+              "efficiency",
+              "freedom"
+            ]
+          }
+        ]
+      }
+    },
+    "awkward": {
+      "id": "awkward",
+      "name": "Awkward Moments",
+      "emoji": "😬",
+      "levels": {
+        "easy": [
+          {
+            "topic": "Trying to walk away gracefully after saying bye to someone walking in the same direction",
+            "relatedWords": [
+              "pace",
+              "sidewalk",
+              "destination",
+              "awkward",
+              "companion",
+              "detour"
+            ]
+          },
+          {
+            "topic": "Realizing you forgot someone's name 20 seconds after they introduced themselves",
+            "relatedWords": [
+              "handshake",
+              "memory",
+              "nickname",
+              "amnesia",
+              "buddy",
+              "guilt"
+            ]
+          },
+          {
+            "topic": "Pushing a door with all your strength when it clearly says PULL",
+            "relatedWords": [
+              "handle",
+              "glass",
+              "physics",
+              "strength",
+              "spectators",
+              "embarrassing"
+            ]
+          }
+        ],
+        "medium": [
+          {
+            "topic": "The panic of waving back at someone who was actually waving at the person behind you",
+            "relatedWords": [
+              "stranger",
+              "pretend",
+              "haircut",
+              "disaster",
+              "invisible",
+              "hallway"
+            ]
+          },
+          {
+            "topic": "The 5-second silence after making a joke in a meeting that nobody laughed at",
+            "relatedWords": [
+              "crickets",
+              "microphone",
+              "cough",
+              "punchline",
+              "career",
+              "apology"
+            ]
+          },
+          {
+            "topic": "The struggle of trying to quietly open a bag of chips in a dead silent room",
+            "relatedWords": [
+              "plastic",
+              "crinkle",
+              "decibels",
+              "explosion",
+              "sneak",
+              "shame"
+            ]
+          }
+        ],
+        "hard": [
+          {
+            "topic": "The dread of being sung Happy Birthday to while having no idea where to look",
+            "relatedWords": [
+              "candles",
+              "clapping",
+              "agony",
+              "frozen",
+              "chorus",
+              "eyeball"
+            ]
+          },
+          {
+            "topic": "Accidentally liking a 4-year-old photo on Instagram at 2 a.m.",
+            "relatedWords": [
+              "stalker",
+              "thumb",
+              "midnight",
+              "investigation",
+              "heartbeat",
+              "panic"
+            ]
+          },
+          {
+            "topic": "Making accidental eye contact with someone through the gap in a public bathroom stall",
+            "relatedWords": [
+              "locking",
+              "freeze",
+              "creepy",
+              "ceiling",
+              "mortified",
+              "escape"
+            ]
+          }
+        ]
+      }
+    },
+    "roast": {
+      "id": "roast",
+      "name": "Playful Roasts",
+      "emoji": "🎯",
+      "levels": {
+        "easy": [
+          {
+            "topic": "People who leave their shopping cart in an empty parking space instead of returning it",
+            "relatedWords": [
+              "lazy",
+              "civilization",
+              "exercise",
+              "wheels",
+              "selfish",
+              "judgment"
+            ]
+          },
+          {
+            "topic": "Anyone who unironically writes 'hope this email finds you well'",
+            "relatedWords": [
+              "inbox",
+              "fake",
+              "greeting",
+              "formal",
+              "corporate",
+              "cliché"
+            ]
+          },
+          {
+            "topic": "People who take 15 items into the 10-items-or-less grocery line",
+            "relatedWords": [
+              "math",
+              "audacity",
+              "cashier",
+              "cheating",
+              "basket",
+              "glare"
+            ]
+          }
+        ],
+        "medium": [
+          {
+            "topic": "People who walk slowly four-abreast on a crowded city sidewalk",
+            "relatedWords": [
+              "traffic",
+              "parade",
+              "blocking",
+              "urgency",
+              "barrier",
+              "patience"
+            ]
+          },
+          {
+            "topic": "Gym bros who grunt loudly while lifting five-pound dumbbells",
+            "relatedWords": [
+              "mirror",
+              "audience",
+              "biceps",
+              "soundtrack",
+              "dramatic",
+              "workout"
+            ]
+          },
+          {
+            "topic": "People who reply to a detailed emotional paragraph with just a thumbs-up emoji",
+            "relatedWords": [
+              "heartless",
+              "typing",
+              "effort",
+              "disrespect",
+              "friendship",
+              "apathy"
+            ]
+          }
+        ],
+        "hard": [
+          {
+            "topic": "Influencers filming dance videos in airport security lines",
+            "relatedWords": [
+              "terminal",
+              "baggage",
+              "cringe",
+              "handcuffs",
+              "flight",
+              "embarrassment"
+            ]
+          },
+          {
+            "topic": "People who put 'entrepreneur' in their bio after buying one crypto coin",
+            "relatedWords": [
+              "billionaire",
+              "resume",
+              "investor",
+              "delusion",
+              "lamborghini",
+              "scam"
+            ]
+          },
+          {
+            "topic": "Couples who share a joint Facebook account in the current year",
+            "relatedWords": [
+              "trust",
+              "paranoia",
+              "investigation",
+              "identity",
+              "suspicious",
+              "profile"
+            ]
+          }
+        ]
+      }
+    },
+    "conspiracy": {
+      "id": "conspiracy",
+      "name": "Fun Conspiracies",
+      "emoji": "👽",
+      "levels": {
+        "easy": [
+          {
+            "topic": "The conspiracy theory that pigeons are government surveillance drones",
+            "relatedWords": [
+              "battery",
+              "feather",
+              "rooftop",
+              "statue",
+              "camera",
+              "signal"
+            ]
+          },
+          {
+            "topic": "Why GPS intentionally sends you into traffic jams just to test your patience",
+            "relatedWords": [
+              "satellite",
+              "algorithm",
+              "detour",
+              "robot",
+              "compass",
+              "rage"
+            ]
+          }
+        ],
+        "medium": [
+          {
+            "topic": "Printers only run out of cyan ink when you have an urgent interview in 10 minutes",
+            "relatedWords": [
+              "cartridge",
+              "sensor",
+              "hardware",
+              "evil",
+              "deadline",
+              "sabotage"
+            ]
+          },
+          {
+            "topic": "Socks go missing in the dryer because washing machines are interdimensional portals",
+            "relatedWords": [
+              "wormhole",
+              "physics",
+              "universe",
+              "laundry",
+              "lint",
+              "teleport"
+            ]
+          }
+        ],
+        "hard": [
+          {
+            "topic": "Dentists recommend toothpaste brands that keep you coming back for cavities",
+            "relatedWords": [
+              "enamel",
+              "sugar",
+              "profit",
+              "monopoly",
+              "appointment",
+              "fluoride"
+            ]
+          },
+          {
+            "topic": "Bedtime thoughts exist solely to stop humans from achieving optimal rest",
+            "relatedWords": [
+              "insomnia",
+              "regret",
+              "midnight",
+              "caffeine",
+              "replay",
+              "exhaustion"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "words": [
+    "banana",
+    "spaghetti",
+    "ninja",
+    "suspicious",
+    "dinosaur",
+    "umbrella",
+    "potato",
+    "chaos",
+    "microwave",
+    "majestic",
+    "slippery",
+    "secret",
+    "champion",
+    "bubble",
+    "dangerous",
+    "superstar",
+    "nightmare",
+    "legendary",
+    "explosive",
+    "awkward",
+    "magic",
+    "genius",
+    "frozen",
+    "magnetic",
+    "mystery",
+    "treasure",
+    "disaster",
+    "spicy",
+    "chocolate",
+    "invisible",
+    "galaxy",
+    "adventure",
+    "monster",
+    "detective",
+    "cactus",
+    "spaceship",
+    "diamond",
+    "puzzle",
+    "whisper",
+    "miracle",
+    "butter",
+    "popcorn",
+    "thunder",
+    "chemistry",
+    "recipe",
+    "designer",
+    "runway",
+    "portal",
+    "stealth",
+    "telescope",
+    "monologue",
+    "notification",
+    "blanket",
+    "candles",
+    "traffic",
+    "pillow",
+    "battery"
   ]
 };
-
-let gameData = DEFAULT_DATA;
+let gameData = GAME_DATA;
 let currentCategory = 'all';
 let currentLevel = 'all';
 let currentTopic = '';
@@ -354,7 +1052,6 @@ function toggleMicManual() {
       updateMicBadge(true, '🎙️ Mic: Always ON (Ready)');
     }
   }
-}
 }
 
 // DOM Elements
@@ -644,10 +1341,13 @@ function getRandomTopicObj(cat = 'all', level = 'all') {
   }
 
   if (pool.length === 0) {
-    return {
-      topic: "Why cereal is technically a cold soup",
-      relatedWords: ["chemistry", "recipe", "liquid", "chef", "tradition", "temperature"]
-    };
+    Object.values(categories).forEach(c => {
+      if (c && c.levels) {
+        Object.values(c.levels).forEach(lvlList => {
+          if (Array.isArray(lvlList)) pool = pool.concat(lvlList);
+        });
+      }
+    });
   }
 
   const item = pool[Math.floor(Math.random() * pool.length)];
@@ -662,7 +1362,7 @@ function getRandomWordForTopic(topicObj, excludeWord = '') {
   if (topicObj && topicObj.relatedWords && topicObj.relatedWords.length > 0) {
     candidates = topicObj.relatedWords;
   } else {
-    candidates = gameData.words || DEFAULT_DATA.words;
+    candidates = (gameData && gameData.words) ? gameData.words : (GAME_DATA.words || ['SECRET']);
   }
   if (excludeWord && candidates.length > 1) {
     const filtered = candidates.filter(w => w.toLowerCase() !== excludeWord.toLowerCase());
@@ -672,7 +1372,8 @@ function getRandomWordForTopic(topicObj, excludeWord = '') {
 }
 
 function rollNewCombo() {
-  if (isSessionActive) return; // Locked during speech
+  if (isTimerRunning) pauseTimer();
+  setSessionActive(false);
 
   // Reset revealed state
   isWordPermanentlyRevealed = false;
@@ -700,7 +1401,7 @@ function rollNewCombo() {
 }
 
 function rerollTopic() {
-  if (isSessionActive) return;
+  if (isTimerRunning) return; // Only lock while actively speaking
   currentTopicObj = getRandomTopicObj(currentCategory, currentLevel);
   currentTopic = currentTopicObj.topic;
   topicDisplay.textContent = currentTopic;
@@ -714,7 +1415,7 @@ function rerollTopic() {
 }
 
 function rerollWord() {
-  if (isSessionActive) return;
+  if (isTimerRunning) return; // Only lock while actively speaking
   // Pick another slightly-related word for the active topic
   currentWord = getRandomWordForTopic(currentTopicObj, currentWord);
   wordDisplay.textContent = currentWord.toUpperCase();
@@ -726,10 +1427,10 @@ function rerollWord() {
 // Lock / Unlock Mechanism
 function setSessionActive(active) {
   isSessionActive = active;
-  btnRepMinus.disabled = active;
-  btnRepPlus.disabled = active;
+  btnRepMinus.disabled = active && isTimerRunning;
+  btnRepPlus.disabled = active && isTimerRunning;
 
-  if (active) {
+  if (active && isTimerRunning) {
     btnSpinAll.disabled = true;
     btnRerollTopic.disabled = true;
     btnRerollWord.disabled = true;
@@ -742,7 +1443,7 @@ function setSessionActive(active) {
     btnRerollWord.disabled = false;
     filterPills.forEach(p => p.disabled = false);
     levelChips.forEach(c => c.disabled = false);
-    statusBar.style.display = 'none';
+    statusBar.style.display = (active && isTimerRunning) ? 'flex' : 'none';
   }
 }
 
@@ -902,6 +1603,7 @@ function pauseTimer() {
   btnTimerStart.textContent = isMinTimeMet ? 'Finish Speech' : 'Resume';
   btnTimerStart.classList.remove('running');
   stopListening();
+  setSessionActive(isSessionActive);
   saveSessionState();
 }
 
@@ -945,7 +1647,7 @@ if (btnSaveCustomTime) {
 // Category Pills
 filterPills.forEach(pill => {
   pill.addEventListener('click', () => {
-    if (isSessionActive) return;
+    if (isTimerRunning) return; // Only lock while actively speaking
     filterPills.forEach(p => p.classList.remove('active'));
     pill.classList.add('active');
     currentCategory = pill.dataset.cat;
@@ -956,7 +1658,7 @@ filterPills.forEach(pill => {
 // Level Chips
 levelChips.forEach(chip => {
   chip.addEventListener('click', () => {
-    if (isSessionActive) return;
+    if (isTimerRunning) return; // Only lock while actively speaking
     levelChips.forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
     currentLevel = chip.dataset.level;

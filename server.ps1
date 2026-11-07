@@ -61,9 +61,13 @@ function Get-RandomTopicItem($category = "all", $level = "all") {
     }
 
     if ($pool.Count -eq 0) {
-        return @{
-            topic = "Why cereal is technically a cold soup"
-            relatedWords = @("chemistry", "recipe", "liquid", "chef")
+        foreach ($prop in $cats.PSObject.Properties.Name) {
+            $catObj = $cats.$prop
+            if ($catObj.levels) {
+                foreach ($lProp in $catObj.levels.PSObject.Properties.Name) {
+                    $pool += @($catObj.levels.$lProp)
+                }
+            }
         }
     }
     return ($pool | Get-Random)

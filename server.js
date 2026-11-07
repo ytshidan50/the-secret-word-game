@@ -54,10 +54,13 @@ const server = http.createServer((req, res) => {
     });
 
     if (pool.length === 0) {
-      pool = [{
-        topic: "Why cereal is technically a cold soup",
-        relatedWords: ["chemistry", "recipe", "liquid", "chef"]
-      }];
+      Object.values(cats).forEach(c => {
+        if (c && c.levels) {
+          Object.values(c.levels).forEach(lvlList => {
+            if (Array.isArray(lvlList)) pool = pool.concat(lvlList);
+          });
+        }
+      });
     }
 
     const topicItem = pool[Math.floor(Math.random() * pool.length)];
