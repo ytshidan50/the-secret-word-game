@@ -56,7 +56,14 @@ declare module 'lucide-react' {
   export const VolumeX: any;
   export const Eye: any;
   export const Trophy: any;
-  export const [key: string]: any;
+  export const Mic: any;
+  export const MicOff: any;
+  export const Play: any;
+  export const Pause: any;
+  export const RotateCcw: any;
+  export const Sparkles: any;
+  const icons: { [key: string]: any };
+  export default icons;
 }
 
 declare namespace JSX {
