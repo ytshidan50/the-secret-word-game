@@ -1296,7 +1296,7 @@ function renderTrackerDots() {
 }
 
 function setTargetRepeats(newVal) {
-  if (isSessionActive) return; // Do not alter while session is running
+  if (isSessionActive && isTimerRunning) return; // Only lock while actively speaking
   targetRepeats = Math.min(10, Math.max(1, newVal));
   updateTargetRepUI();
   if (repeatCount > targetRepeats) repeatCount = targetRepeats;
@@ -1530,7 +1530,7 @@ function updateTimerDisplay() {
     timerText.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
     timerText.classList.remove('overtime');
     timerLabelStatus.textContent = '⏱ Min Time:';
-    minTimeBadge.style.display = 'none';
+    if (minTimeBadge) minTimeBadge.style.display = 'none';
   } else {
     // Phase 2: Minimum reached! Showing total time / overtime so speaker finishes comfortably
     const totalSecs = minTimeTarget + overtimeSeconds;
@@ -1539,7 +1539,7 @@ function updateTimerDisplay() {
     timerText.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
     timerText.classList.add('overtime');
     timerLabelStatus.textContent = '🎙 Speaking:';
-    minTimeBadge.style.display = 'inline-block';
+    if (minTimeBadge) minTimeBadge.style.display = 'inline-block';
   }
 }
 

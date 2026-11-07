@@ -1,8 +1,28 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Lock } from 'lucide-react';
 import gameData from './data/game_data.json';
+
+// Lightweight inline Lock icon - zero external dependencies required
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
 
 // Helper functions for pure dataset selection
 function getCandidatesFromData(selectedCat: string, selectedLvl: string) {
@@ -84,7 +104,7 @@ export default function DualComboComponent() {
   const playChime = useCallback(() => {
     if (typeof window === 'undefined') return;
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
 
       const ctx = new AudioCtx();
@@ -311,7 +331,7 @@ export default function DualComboComponent() {
       </div>
 
       {/* Category Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-1 mb-4">
+      <div className="flex gap-2 overflow-x-auto pb-1 mb-2">
         {[
           { id: 'all', label: '✨ All Categories' },
           { id: 'fun', label: '😂 Silly & Fun' },
@@ -332,6 +352,30 @@ export default function DualComboComponent() {
             }`}
           >
             {pill.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Difficulty Level Chips */}
+      <div className="flex gap-2 pb-1 mb-4 overflow-x-auto">
+        {[
+          { id: 'all', label: 'All Levels' },
+          { id: 'easy', label: '🟢 Easy' },
+          { id: 'medium', label: '🟡 Medium' },
+          { id: 'hard', label: '🌶️ Spicy / Hard' },
+        ].map((lvl) => (
+          <button
+            key={lvl.id}
+            type="button"
+            disabled={isRunning}
+            onClick={() => setLevel(lvl.id)}
+            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+              level === lvl.id
+                ? 'bg-sky-500 text-white border-sky-400 shadow-sm'
+                : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white disabled:opacity-30'
+            }`}
+          >
+            {lvl.label}
           </button>
         ))}
       </div>
@@ -417,7 +461,7 @@ export default function DualComboComponent() {
               </div>
             ) : (
               <div className="flex flex-col items-center gap-1.5 py-1">
-                <Lock className="w-5 h-5 text-slate-400 mb-1" />
+                <LockIcon className="w-5 h-5 text-slate-400 mb-1" />
                 <span className="text-sm font-extrabold tracking-wide text-slate-200">
                   PRESS & HOLD TO VIEW WORD
                 </span>
@@ -587,7 +631,17 @@ export default function DualComboComponent() {
       {/* Audience Reveal Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
+          <div className="relative bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
+            {/* Modal Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowModal(false)}
+              aria-label="Close modal"
+              className="absolute top-3 right-3 text-slate-400 hover:text-white w-7 h-7 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 transition-colors text-xs font-bold"
+            >
+              ✕
+            </button>
+
             <span className="text-4xl">🎉</span>
             <h2 className="text-xl font-black text-white">Speech Finished!</h2>
             <p className="text-xs text-slate-400">Can the audience guess what the secret word was?</p>

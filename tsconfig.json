@@ -13,5 +13,6 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.js"]
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "pages/**/*.js", "api/**/*.js"],
+  "exclude": ["node_modules", "app.js", "server.js"]
 }

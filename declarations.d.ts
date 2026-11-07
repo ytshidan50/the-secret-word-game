@@ -6,39 +6,42 @@ declare var process: any;
 declare var __dirname: string;
 
 declare module 'react' {
-  export = React;
-  export as namespace React;
-  export default React;
+  export type ReactNode = any;
+  export type JSXElementConstructor<P> = any;
+  export interface RefObject<T> { readonly current: T | null; }
+  export interface MutableRefObject<T> { current: T; }
+  export type DependencyList = ReadonlyArray<unknown>;
 
-  namespace React {
-    type ReactNode = any;
-    type JSXElementConstructor<P> = any;
-    interface RefObject<T> { readonly current: T | null; }
-    interface MutableRefObject<T> { current: T; }
-    type DependencyList = ReadonlyArray<unknown>;
+  export function useState<T>(initialState: T | (() => T)): [T, (value: T | ((prev: T) => T)) => void];
+  export function useEffect(effect: () => void | (() => void), deps?: DependencyList): void;
+  export function useRef<T>(initialValue: T): MutableRefObject<T>;
+  export function useCallback<T extends (...args: any[]) => any>(callback: T, deps: DependencyList): T;
 
-    function useState<T>(initialState: T | (() => T)): [T, (value: T | ((prev: T) => T)) => void];
-    function useEffect(effect: () => void | (() => void), deps?: DependencyList): void;
-    function useRef<T>(initialValue: T): MutableRefObject<T>;
-    function useCallback<T extends (...args: any[]) => any>(callback: T, deps: DependencyList): T;
-
-    interface MouseEvent<T = Element> {
-      preventDefault(): void;
-      stopPropagation(): void;
-    }
-    interface TouchEvent<T = Element> {
-      preventDefault(): void;
-      stopPropagation(): void;
-    }
-    interface KeyboardEvent<T = Element> {
-      key: string;
-      preventDefault(): void;
-      stopPropagation(): void;
-    }
-    interface HTMLAttributes<T> {
-      [key: string]: any;
-    }
+  export interface MouseEvent<T = Element> {
+    preventDefault(): void;
+    stopPropagation(): void;
   }
+  export interface TouchEvent<T = Element> {
+    preventDefault(): void;
+    stopPropagation(): void;
+  }
+  export interface KeyboardEvent<T = Element> {
+    key: string;
+    preventDefault(): void;
+    stopPropagation(): void;
+  }
+  export interface HTMLAttributes<T> {
+    [key: string]: any;
+  }
+
+  const React: {
+    useState: typeof useState;
+    useEffect: typeof useEffect;
+    useRef: typeof useRef;
+    useCallback: typeof useCallback;
+    [key: string]: any;
+  };
+  export default React;
 }
 
 declare module 'react/jsx-runtime' {
@@ -67,6 +70,7 @@ declare module 'lucide-react' {
 }
 
 declare namespace JSX {
+  interface Element {}
   interface IntrinsicElements {
     [elemName: string]: any;
   }
