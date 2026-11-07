@@ -1,4 +1,10 @@
 // TypeScript ambient declarations for standalone files without local node_modules
+declare var require: any;
+declare var module: any;
+declare var exports: any;
+declare var process: any;
+declare var __dirname: string;
+
 declare module 'react' {
   export = React;
   export as namespace React;
@@ -72,4 +78,3 @@ declare module 'next/server' {
     static next(): NextResponse;
   }
 }
-

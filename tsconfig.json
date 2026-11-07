@@ -5,12 +5,12 @@
     "moduleResolution": "node",
     "jsx": "preserve",
     "allowJs": true,
+    "checkJs": false,
     "skipLibCheck": true,
     "strict": false,
     "noEmit": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.js"]
 }
-

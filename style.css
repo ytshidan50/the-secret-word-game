@@ -485,13 +485,35 @@ body {
 }
 
 .speech-status {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.12);
-  padding: 2px 8px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  padding: 3px 10px;
   border-radius: 999px;
-  animation: pulse 2s infinite;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.speech-status:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+.speech-status.mic-muted {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.speech-status.mic-muted:hover {
+  background: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
 }
 
 .tracker-dots {

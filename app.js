@@ -167,18 +167,55 @@ function playCompletionChime() {
 // Free Web Speech Recognition (Built into browsers, 0 AI tokens, 0 API keys)
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
+let isListeningDesired = false;    // Tracks whether session wants listening
+let isRecognitionActive = false;   // Tracks if recognition engine is currently open
+let isMicMutedByUser = false;      // User manual mute state
+let micRestartTimeout = null;
 let lastDetectedTimestamp = 0;
 
+function updateMicBadge(isActive, message) {
+  if (!speechIndicator) return;
+  speechIndicator.style.display = 'inline-flex';
+  if (isActive) {
+    speechIndicator.textContent = message || '🎙️ Mic: ON';
+    speechIndicator.classList.add('mic-active');
+    speechIndicator.classList.remove('mic-muted');
+    speechIndicator.setAttribute('aria-pressed', 'true');
+  } else {
+    speechIndicator.textContent = message || '🎙️ Mic: OFF';
+    speechIndicator.classList.remove('mic-active');
+    speechIndicator.classList.add('mic-muted');
+    speechIndicator.setAttribute('aria-pressed', 'false');
+  }
+}
+
 function initSpeechRecognition() {
-  if (!SpeechRecognition) return;
+  if (!SpeechRecognition) {
+    if (speechIndicator) {
+      speechIndicator.style.display = 'inline-flex';
+      speechIndicator.textContent = '🎙️ Tap Dots (No Mic)';
+      speechIndicator.classList.add('mic-muted');
+    }
+    return;
+  }
+
   try {
     recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    // On mobile devices, continuous = false prevents the OS speech engine from flapping and cycling on/off
+    recognition.continuous = !isMobile;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
+    recognition.onstart = () => {
+      isRecognitionActive = true;
+      if (!isMicMutedByUser) {
+        updateMicBadge(true, '🎙️ Mic: ON');
+      }
+    };
+
     recognition.onresult = (event) => {
-      if (!isSessionActive || !currentWord) return;
+      if (!isSessionActive || !currentWord || isMicMutedByUser) return;
 
       const now = Date.now();
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -189,7 +226,7 @@ function initSpeechRecognition() {
         const regex = new RegExp(`\\b${target}(s|es|ed|ing)?\\b`, 'i');
         if (regex.test(transcript)) {
           // Debounce to prevent multiple counts from the same spoken sentence
-          if (now - lastDetectedTimestamp > 2200) {
+          if (now - lastDetectedTimestamp > 2000) {
             lastDetectedTimestamp = now;
             incrementWordCount();
           }
@@ -197,28 +234,94 @@ function initSpeechRecognition() {
       }
     };
 
-    recognition.onerror = () => { };
-    recognition.onend = () => {
-      if (isSessionActive && isTimerRunning) {
-        try { recognition.start(); } catch (err) { }
+    recognition.onerror = (event) => {
+      console.warn('Speech recognition warning:', event.error);
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        isListeningDesired = false;
+        isRecognitionActive = false;
+        updateMicBadge(false, '🎙️ Mic Denied (Tap dots)');
+        return;
       }
+      if (event.error === 'audio-capture') {
+        isListeningDesired = false;
+        isRecognitionActive = false;
+        updateMicBadge(false, '🎙️ No Mic Found');
+        return;
+      }
+      // 'no-speech' or 'aborted' are normal speaking pauses on mobile
+    };
+
+    recognition.onend = () => {
+      isRecognitionActive = false;
+
+      // If user deliberately muted or timer stopped, do not restart
+      if (!isListeningDesired || isMicMutedByUser || !isSessionActive || !isTimerRunning) {
+        if (isMicMutedByUser) {
+          updateMicBadge(false, '🎙️ Mic: OFF (Tap dots)');
+        }
+        return;
+      }
+
+      // Calm, debounced restart: wait 600ms so mobile audio hardware doesn't oscillate
+      clearTimeout(micRestartTimeout);
+      micRestartTimeout = setTimeout(() => {
+        if (isListeningDesired && !isMicMutedByUser && isSessionActive && isTimerRunning && !isRecognitionActive) {
+          try {
+            recognition.start();
+          } catch (err) {
+            // Already started or busy, ignore
+          }
+        }
+      }, 600);
     };
   } catch (err) {
-    console.warn('Speech recognition not available:', err);
+    console.warn('Speech recognition setup error:', err);
   }
 }
 
 function startListening() {
-  if (recognition) {
-    speechIndicator.style.display = 'inline-block';
-    try { recognition.start(); } catch (e) { }
+  if (!recognition || isMicMutedByUser) return;
+  isListeningDesired = true;
+  clearTimeout(micRestartTimeout);
+  if (!isRecognitionActive) {
+    updateMicBadge(true, '🎙️ Mic: ON');
+    try {
+      recognition.start();
+    } catch (e) {
+      console.warn('Start listening exception:', e);
+    }
   }
 }
 
 function stopListening() {
-  if (recognition) {
-    speechIndicator.style.display = 'none';
-    try { recognition.stop(); } catch (e) { }
+  isListeningDesired = false;
+  clearTimeout(micRestartTimeout);
+  if (recognition && isRecognitionActive) {
+    try {
+      recognition.stop();
+    } catch (e) { }
+  }
+  isRecognitionActive = false;
+}
+
+function toggleMicManual() {
+  if (!SpeechRecognition) {
+    alert('Speech recognition is not supported on this browser. You can manually tap the 1, 2, 3 repetition dots to count!');
+    return;
+  }
+
+  isMicMutedByUser = !isMicMutedByUser;
+  if (isMicMutedByUser) {
+    // User wants mic off
+    stopListening();
+    updateMicBadge(false, '🎙️ Mic: OFF (Tap dots)');
+  } else {
+    // User wants mic on
+    if (isSessionActive && isTimerRunning) {
+      startListening();
+    } else {
+      updateMicBadge(true, '🎙️ Mic: ON (Ready)');
+    }
   }
 }
 
@@ -270,6 +373,9 @@ const btnSaveCustomTime = document.getElementById('btn-save-custom-time');
 // App Initialization with Local Session Persistence
 async function init() {
   initSpeechRecognition();
+  if (speechIndicator) {
+    speechIndicator.addEventListener('click', toggleMicManual);
+  }
   loadSavedTimer();
   updateTargetRepUI();
   renderTrackerDots();

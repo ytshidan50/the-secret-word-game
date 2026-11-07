@@ -1,0 +1,79 @@
+// Next.js & Vercel API Route: GET /api/combo
+const path = require('path');
+const fs = require('fs');
+
+let gameData = { categories: {}, words: [] };
+try {
+  gameData = require('../../data/game_data.json');
+} catch (e) {
+  try {
+    const dataPath = path.join(process.cwd(), 'data', 'game_data.json');
+    gameData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+  } catch (err) {
+    console.error('Failed to load game_data.json in serverless environment:', err);
+  }
+}
+
+function handler(req, res) {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  const query = req.query || {};
+  const category = query.category || 'all';
+  const level = query.level || 'all';
+
+  // Collect candidate topics from single game_data.json
+  let topicPool = [];
+  const categories = gameData.categories || {};
+  const targetCats = (category === 'all')
+    ? Object.values(categories)
+    : [categories[category]].filter(Boolean);
+
+  targetCats.forEach(c => {
+    if (!c.levels) return;
+    if (level === 'all') {
+      Object.values(c.levels).forEach(lvlList => {
+        if (Array.isArray(lvlList)) topicPool = topicPool.concat(lvlList);
+      });
+    } else if (c.levels[level]) {
+      topicPool = topicPool.concat(c.levels[level]);
+    }
+  });
+
+  if (topicPool.length === 0) {
+    topicPool = [
+      {
+        topic: "Why cereal is technically a cold soup",
+        relatedWords: ["chemistry", "recipe", "liquid", "chef", "tradition", "temperature"]
+      }
+    ];
+  }
+
+  const topicItem = topicPool[Math.floor(Math.random() * topicPool.length)];
+  const topic = topicItem.topic;
+  const candidates = (topicItem.relatedWords && topicItem.relatedWords.length > 0)
+    ? topicItem.relatedWords
+    : (gameData.words || ["SECRET"]);
+  const word = candidates[Math.floor(Math.random() * candidates.length)];
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      topic,
+      word: word.toUpperCase(),
+      category,
+      level,
+      rules: `Speak on "${topic}" and secretly repeat the word "${word.toUpperCase()}" at least 3 times. Audience must guess the word!`
+    },
+    timestamp: new Date().toISOString()
+  });
+}
+
+module.exports = handler;
+module.exports.default = handler;

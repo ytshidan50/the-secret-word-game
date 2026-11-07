@@ -1,22 +1,11 @@
 {
   "name": "the-secret-word-game",
   "version": "1.0.0",
+  "private": true,
   "description": "The Secret Word Game - Impromptu Speaking Party Game & REST API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "build": "echo 'Static build ready'"
-  },
-  "dependencies": {
-    "next": "^14.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "lucide-react": "^0.300.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "typescript": "^5.0.0"
   }
 }
