@@ -167,9 +167,9 @@ function playCompletionChime() {
 // Free Web Speech Recognition (Built into browsers, 0 AI tokens, 0 API keys)
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
-let isListeningDesired = false;    // Tracks whether session wants listening
-let isRecognitionActive = false;   // Tracks if recognition engine is currently open
-let isMicMutedByUser = false;      // User manual mute state
+let isListeningDesired = false;    // User/session intent: mic should remain always on
+let isRecognitionActive = false;   // Hardware state
+let isMicMutedByUser = false;      // Manual mute toggle
 let micRestartTimeout = null;
 let lastDetectedTimestamp = 0;
 
@@ -177,7 +177,7 @@ function updateMicBadge(isActive, message) {
   if (!speechIndicator) return;
   speechIndicator.style.display = 'inline-flex';
   if (isActive) {
-    speechIndicator.textContent = message || '🎙️ Mic: ON';
+    speechIndicator.textContent = message || '🎙️ Mic: Always ON';
     speechIndicator.classList.add('mic-active');
     speechIndicator.classList.remove('mic-muted');
     speechIndicator.setAttribute('aria-pressed', 'true');
@@ -201,17 +201,20 @@ function initSpeechRecognition() {
 
   try {
     recognition = new SpeechRecognition();
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    // On mobile devices, continuous = false prevents the OS speech engine from flapping and cycling on/off
-    recognition.continuous = !isMobile;
+    // Continuous MUST always be true so the browser never closes the mic after a sentence
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
     recognition.onstart = () => {
       isRecognitionActive = true;
-      if (!isMicMutedByUser) {
-        updateMicBadge(true, '🎙️ Mic: ON');
+      if (!isMicMutedByUser && isListeningDesired) {
+        updateMicBadge(true, '🎙️ Mic: Always ON');
       }
+    };
+
+    recognition.onaudiostart = () => {
+      isRecognitionActive = true;
     };
 
     recognition.onresult = (event) => {
@@ -235,7 +238,7 @@ function initSpeechRecognition() {
     };
 
     recognition.onerror = (event) => {
-      console.warn('Speech recognition warning:', event.error);
+      // 'no-speech' or 'aborted' are normal pauses in speech; keep listening!
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         isListeningDesired = false;
         isRecognitionActive = false;
@@ -248,34 +251,50 @@ function initSpeechRecognition() {
         updateMicBadge(false, '🎙️ No Mic Found');
         return;
       }
-      // 'no-speech' or 'aborted' are normal speaking pauses on mobile
     };
 
     recognition.onend = () => {
       isRecognitionActive = false;
 
-      // If user deliberately muted or timer stopped, do not restart
-      if (!isListeningDesired || isMicMutedByUser || !isSessionActive || !isTimerRunning) {
-        if (isMicMutedByUser) {
-          updateMicBadge(false, '🎙️ Mic: OFF (Tap dots)');
-        }
-        return;
+      // Keep it ALWAYS ON while speaking time is active
+      if (isListeningDesired && !isMicMutedByUser && isSessionActive && isTimerRunning) {
+        restartRecognition();
+      } else if (isMicMutedByUser) {
+        updateMicBadge(false, '🎙️ Mic: OFF (Tap dots)');
       }
-
-      // Calm, debounced restart: wait 600ms so mobile audio hardware doesn't oscillate
-      clearTimeout(micRestartTimeout);
-      micRestartTimeout = setTimeout(() => {
-        if (isListeningDesired && !isMicMutedByUser && isSessionActive && isTimerRunning && !isRecognitionActive) {
-          try {
-            recognition.start();
-          } catch (err) {
-            // Already started or busy, ignore
-          }
-        }
-      }, 600);
     };
   } catch (err) {
     console.warn('Speech recognition setup error:', err);
+  }
+}
+
+function restartRecognition() {
+  if (!isListeningDesired || isMicMutedByUser || !isSessionActive || !isTimerRunning) return;
+  clearTimeout(micRestartTimeout);
+
+  // Immediate restart to prevent phone from releasing microphone and dropping the green indicator
+  try {
+    recognition.start();
+    isRecognitionActive = true;
+  } catch (err) {
+    // If browser needs a micro-tick to recycle, restart within 25ms
+    micRestartTimeout = setTimeout(() => {
+      if (isListeningDesired && !isMicMutedByUser && isSessionActive && isTimerRunning) {
+        try {
+          recognition.start();
+          isRecognitionActive = true;
+        } catch (e) {
+          try {
+            // Re-instantiate if instance died
+            initSpeechRecognition();
+            if (recognition) {
+              recognition.start();
+              isRecognitionActive = true;
+            }
+          } catch (e2) { }
+        }
+      }
+    }, 25);
   }
 }
 
@@ -283,12 +302,21 @@ function startListening() {
   if (!recognition || isMicMutedByUser) return;
   isListeningDesired = true;
   clearTimeout(micRestartTimeout);
+  updateMicBadge(true, '🎙️ Mic: Always ON');
+
+  // Resume Web Audio Context if suspended
+  try {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  } catch (e) { }
+
   if (!isRecognitionActive) {
-    updateMicBadge(true, '🎙️ Mic: ON');
     try {
       recognition.start();
+      isRecognitionActive = true;
     } catch (e) {
-      console.warn('Start listening exception:', e);
+      restartRecognition();
     }
   }
 }
@@ -296,12 +324,15 @@ function startListening() {
 function stopListening() {
   isListeningDesired = false;
   clearTimeout(micRestartTimeout);
-  if (recognition && isRecognitionActive) {
+  if (recognition) {
     try {
       recognition.stop();
     } catch (e) { }
   }
   isRecognitionActive = false;
+  if (!isMicMutedByUser) {
+    updateMicBadge(false, '🎙️ Mic: Paused');
+  }
 }
 
 function toggleMicManual() {
@@ -312,7 +343,7 @@ function toggleMicManual() {
 
   isMicMutedByUser = !isMicMutedByUser;
   if (isMicMutedByUser) {
-    // User wants mic off
+    // User wants mic completely off
     stopListening();
     updateMicBadge(false, '🎙️ Mic: OFF (Tap dots)');
   } else {
@@ -320,9 +351,10 @@ function toggleMicManual() {
     if (isSessionActive && isTimerRunning) {
       startListening();
     } else {
-      updateMicBadge(true, '🎙️ Mic: ON (Ready)');
+      updateMicBadge(true, '🎙️ Mic: Always ON (Ready)');
     }
   }
+}
 }
 
 // DOM Elements
