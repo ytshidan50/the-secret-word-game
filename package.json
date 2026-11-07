@@ -4,7 +4,8 @@
   "description": "The Secret Word Game - Impromptu Speaking Party Game & REST API",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo 'Static build ready'"
   },
   "dependencies": {
     "next": "^14.0.0",
@@ -19,4 +20,3 @@
     "typescript": "^5.0.0"
   }
 }
-

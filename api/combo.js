@@ -1,7 +1,20 @@
 // Vercel Serverless Function: GET /api/combo
-const gameData = require('../data/game_data.json');
+const path = require('path');
+const fs = require('fs');
 
-export default function handler(req, res) {
+let gameData = { categories: {}, words: [] };
+try {
+  gameData = require('../data/game_data.json');
+} catch (e) {
+  try {
+    const dataPath = path.join(process.cwd(), 'data', 'game_data.json');
+    gameData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+  } catch (err) {
+    console.error('Failed to load game_data.json in serverless environment:', err);
+  }
+}
+
+function handler(req, res) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -11,7 +24,7 @@ export default function handler(req, res) {
     return res.status(204).end();
   }
 
-  const { category = 'all', level = 'all' } = req.query;
+  const { category = 'all', level = 'all' } = req.query || {};
 
   // Collect candidate topics from single game_data.json
   let topicPool = [];
@@ -60,3 +73,5 @@ export default function handler(req, res) {
   });
 }
 
+module.exports = handler;
+module.exports.default = handler;
